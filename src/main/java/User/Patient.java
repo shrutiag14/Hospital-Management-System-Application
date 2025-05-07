@@ -13,41 +13,46 @@ import D_P_Interaction.MedicalDatabase;
 
 public class Patient extends User {
     // defining all the private attributes for security
-    private final String patientID = User.randomIdGenerator();
+//    private final String patientID = User.randomIdGenerator();
     private ArrayList<LocalDate> checkupHistory;
     private boolean isAdmit;
     private double pendingFee;
     private ArrayList<String> diagnosis;
     private ArrayList<Feedback> feedbacks;
-    private final AppointmentManager appointmentManager;
+    private AppointmentManager appointmentManager;
 
     // defining the constructor
-    public Patient( AppointmentManager manager, String name, LocalDate dob, String gender, String address, String phone, String email, String password, ArrayList<LocalDate> checkupHistory, boolean isAdmit, double pendingFee, ArrayList<String> diagnosis, ArrayList<Feedback> feedback)
+
+    public Patient() {
+
+    }
+
+    public Patient(String userID, String name, LocalDate dob, String gender, String address, String phone, String email, String password, ArrayList<LocalDate> checkupHistory, boolean isAdmit, double pendingFee, ArrayList<String> diagnosis, ArrayList<Feedback> feedback)
             throws InvalidNameException, InvalidDateOfBirthException, InvalidGenderException, InvalidEmailException, InvalidPasswordException  {
-        super( name, dob, gender, address, phone, email, password);
+        super(userID, name, dob, gender, address, phone, email, password);
         this.checkupHistory = checkupHistory;
         this.isAdmit = isAdmit;
         this.pendingFee = pendingFee;
         this.diagnosis = diagnosis;
         this.feedbacks = feedback;
-        this.appointmentManager = manager;
+        this.appointmentManager = new AppointmentManager();
     }
 
-    // copy constructor
-    public Patient(Patient patient) throws InvalidNameException, InvalidDateOfBirthException, InvalidGenderException, InvalidEmailException, InvalidPasswordException {
-        super(patient.getName(), patient.getDateOfBirth(), patient.getGender(), patient.getAddress(), patient.getPhone(), patient.getEmail(), patient.getPassword());
-        this.isAdmit = patient.isAdmit;
-        this.pendingFee = patient.pendingFee;
-        this.diagnosis.addAll(patient.diagnosis);
-        this.feedbacks = new ArrayList<>(patient.feedbacks); // creating the new arraylist so that the copy object doesnt affect the original object
-        this.appointmentManager = patient.appointmentManager;
-        this.checkupHistory = new ArrayList<>(patient.checkupHistory); // creating the new arraylist so that the copy object doesnt affect the original object
-    }
+//    // copy constructor
+//    public Patient(Patient patient) throws InvalidNameException, InvalidDateOfBirthException, InvalidGenderException, InvalidEmailException, InvalidPasswordException {
+//        super(patient.getName(), patient.getDateOfBirth(), patient.getGender(), patient.getAddress(), patient.getPhone(), patient.getEmail(), patient.getPassword());
+//        this.isAdmit = patient.isAdmit;
+//        this.pendingFee = patient.pendingFee;
+//        this.diagnosis.addAll(patient.diagnosis);
+//        this.feedbacks = new ArrayList<>(patient.feedbacks); // creating the new arraylist so that the copy object doesnt affect the original object
+//        this.appointmentManager = patient.appointmentManager;
+//        this.checkupHistory = new ArrayList<>(patient.checkupHistory); // creating the new arraylist so that the copy object doesnt affect the original object
+//    }
 
     // getters
-    public String getPatientID() {
-        return patientID;
-    }
+//    public String getPatientID() {
+//        return patientID;
+//    }
 
     public boolean isAdmit() {
         return isAdmit;
@@ -188,13 +193,15 @@ public class Patient extends User {
         System.out.println("Appointment rescheduled successfully to: " + newDateTime);
     }
 
+
+
     @Override
     public String toString() {
         return String.format("\\nDetails:Name: %s\\tAge: %s\\tGender: %s\\tAddress:" +
-                " %s\\tPhone: %s\\tEmail: %s\\tPassword: %s\\Patient Details:\\Patient ID: %s\\tCheckup" +
+                " %s\\tPhone: %s\\tEmail: %s\\tPassword: %s\\Patient Details:\nCheckup" +
                 " History: %s\\tAdmit: %b\\tPending Fee:  %f\\tDiagnosis:" +
                 " %s\\t", getName(), getAge(), getGender(), getAddress(), getPhone(), getEmail(),
-                getPassword(), patientID, checkupHistory, isAdmit, pendingFee, diagnosis);
+                getPassword(), checkupHistory, isAdmit, pendingFee, diagnosis);
     }
 }
 

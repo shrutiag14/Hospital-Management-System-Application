@@ -27,7 +27,7 @@ public class MedicalDatabase {
         MedicalHistory history = medicalDatabase.get(patient);
         if (history != null) {
             System.out.println();
-            System.out.println("Displaying History for " + patient.getName() + " (Patient ID: " + patient.getPatientID() + ")");
+            System.out.println("Displaying History for " + patient.getName() + " (Patient ID: " + patient.getUserID() + ")");
             history.displayMedicalHistory();
         } else {
             System.out.println("No history found for " + patient.getName());

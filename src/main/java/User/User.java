@@ -18,12 +18,12 @@ import Exceptions.*;
 public abstract class User {
     private static final Random rand = new Random(); // instantiating the Random class object
     // patterns for authentication
-    private static final String NAME_PATTERN = "^[a-zA-Z]{2,}(\\s[a-zA-Z]{2,})+$";
+//    private static final String NAME_PATTERN = "^[a-zA-Z]{2,}(\\s[a-zA-Z]{2,})+$";
     private static final String MAIL_PATTERN = "^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]+$";
     private static final String PASS_PATTERN = "^[a-zA-Z0-9@#$*&=+!]{8,20}+$";
     private static final char[] characters = {'a', 'b', 'c', 'd', 'e', 'f','A', 'B', 'C', 'D', 'E', 'F', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'};
     // declaring all the user attributes, keeping them private to ensure security and applying the encapsulation principle of OOP
-//    private final String userID = randomIdGenerator();
+    private String userID;
     private String name;
     private LocalDate dateOfBirth;
     private String gender;
@@ -32,9 +32,14 @@ public abstract class User {
     private String email;
     private String password;
 
+    public User() {
+
+    }
+
     // defining the constructor;
-    User(String name, LocalDate dob, String gender, String address, String phone, String email, String password)
+    User(String userID, String name, LocalDate dob, String gender, String address, String phone, String email, String password)
             throws InvalidNameException, InvalidDateOfBirthException, InvalidGenderException, InvalidEmailException, InvalidPasswordException {
+        setUserID(userID);
         setName(name);
         setDateOfBirth(dob);
         setGender(gender);
@@ -47,9 +52,6 @@ public abstract class User {
 
     // defining all the setters with validations
     public void setName(String name) throws InvalidNameException {
-        if (!isValidName(name)) {
-            throw new InvalidNameException("Invalid name! Name must match pattern: " + NAME_PATTERN);
-        }
         this.name = name;
     }
 
@@ -61,6 +63,9 @@ public abstract class User {
         this.dateOfBirth = birthDate;
     }
 
+    public void setUserID(String userID) {
+        this.userID = userID;
+    }
 
     public void setGender(String gender) throws InvalidGenderException {
         if (!gender.equalsIgnoreCase("male") && !gender.equalsIgnoreCase("female")) {
@@ -93,9 +98,9 @@ public abstract class User {
 
 
     // defining all the getters
-//    public String getUserID() {
-//        return userID;
-//    }
+    public String getUserID() {
+        return userID;
+    }
     public String getName() {
         return name;
     }
@@ -117,16 +122,13 @@ public abstract class User {
     public LocalDate getDateOfBirth() {
         return dateOfBirth;
     }
-    public Period getAge() {
-        return Period.between(dateOfBirth, LocalDate.now());
+    public int getAge() {
+        Period period = Period.between(dateOfBirth, LocalDate.now());
+        return period.getYears();
     }
 
     // defining user class methods
     public void changeUsername(String name) {
-        if(!isValidName(name)) {
-            System.out.println("Invalid name!");
-            return;
-        }
         this.name = name;
     }
 
@@ -152,9 +154,9 @@ public abstract class User {
 
     public abstract void cancelAppointment(Appointment appointment);
 
-    public static boolean isValidName(String name) {
-        return Pattern.matches(NAME_PATTERN, name);
-    }
+//    public static boolean isValidName(String name) {
+//        return Pattern.matches(NAME_PATTERN, name);
+//    }
 
     public static boolean isValidEmail(String email) {
         return Pattern.matches(MAIL_PATTERN, email);

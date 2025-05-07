@@ -141,27 +141,19 @@ public class HelloApplication extends Application {
         mainContent.setPadding(new Insets(100));
         mainContent.setAlignment(Pos.CENTER_LEFT);
 
-        Button doctorBtn = new Button("Doctor");
-        doctorBtn.setOnAction(e -> {
-            DoctorDashboard dashboard = new DoctorDashboard();
-            try {
-                dashboard.start((Stage) ((Node) e.getSource()).getScene().getWindow());
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
-        });
 
-        Button patientBtn = new Button("Doctor");
-        patientBtn.setOnAction(e -> {
-            PatientDashboard dashboard = new PatientDashboard();
-            try {
-                dashboard.start((Stage) ((Node) e.getSource()).getScene().getWindow());
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
-        });
 
-        VBox root = new VBox(navBar, mainContent, doctorBtn, patientBtn);
+//        Button patientBtn = new Button("Doctor");
+//        patientBtn.setOnAction(e -> {
+//            PatientDashboard dashboard = new PatientDashboard();
+//            try {
+//                dashboard.start((Stage) ((Node) e.getSource()).getScene().getWindow());
+//            } catch (Exception ex) {
+//                ex.printStackTrace();
+//            }
+//        });
+
+        VBox root = new VBox(navBar, mainContent);
         root.setStyle("-fx-background-color: #f8f8f8;");
 
 

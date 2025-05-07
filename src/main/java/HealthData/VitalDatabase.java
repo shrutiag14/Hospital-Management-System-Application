@@ -27,7 +27,7 @@ public class VitalDatabase {
         VitalSign vitalSign = vitalMap.get(patient);
         if (vitalSign != null) {
             System.out.println();
-            System.out.println("Displaying vitals for " + patient.getName() + " (Patient ID: " + patient.getPatientID() + ")");
+            System.out.println("Displaying vitals for " + patient.getName() + " (Patient ID: " + patient.getUserID() + ")");
             System.out.println(vitalSign.toString());
         } else {
             System.out.println("No vitals found for " + patient.getName());

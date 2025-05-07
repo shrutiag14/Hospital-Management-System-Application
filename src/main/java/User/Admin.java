@@ -11,33 +11,33 @@ import java.time.LocalDateTime;
 
 public class Admin extends User {
     // private class variables
-    private final String adminID = User.randomIdGenerator();
+//    private final String adminID = User.randomIdGenerator();
     private static ArrayList<Patient> patients = new ArrayList<>();
     private static ArrayList<Doctor> doctors = new ArrayList<>();
-    private final AppointmentManager appointmentManager;
+    private AppointmentManager appointmentManager;
 
     // Constructor
-    public Admin(AppointmentManager manager, String name, LocalDate dob, String gender, String address, String phone, String email, String password)
+    public Admin(AppointmentManager manager, String userID, String name, LocalDate dob, String gender, String address, String phone, String email, String password)
             throws InvalidNameException, InvalidDateOfBirthException, InvalidGenderException,
             InvalidEmailException, InvalidPasswordException {
-        super(name, dob, gender, address, phone, email, password);
-        this.appointmentManager = manager;
+        super(userID, name, dob, gender, address, phone, email, password);
+        this.appointmentManager = new AppointmentManager();
     }
 
 
     // Copy Constructor
     public Admin(Admin admin) throws InvalidNameException, InvalidDateOfBirthException,
             InvalidGenderException, InvalidEmailException, InvalidPasswordException {
-        super(admin.getName(), admin.getDateOfBirth(), admin.getGender(), admin.getAddress(),
+        super(admin.getUserID(), admin.getName(), admin.getDateOfBirth(), admin.getGender(), admin.getAddress(),
                 admin.getPhone(), admin.getEmail(), admin.getPassword());
         this.appointmentManager = admin.appointmentManager;
     }
 
 
     // Getters
-    public String getAdminID() {
-        return adminID;
-    }
+//    public String getAdminID() {
+//        return adminID;
+//    }
 
     public ArrayList<Patient> getPatients() {
         return patients;
@@ -68,7 +68,7 @@ public class Admin extends User {
             return;
         }
         for (int i = 0; i < doctors.size(); i++) {
-            if (doctors.get(i).getDoctorID().equals(doctorID)) {
+            if (doctors.get(i).getUserID().equals(doctorID)) {
                 doctors.set(i, newDetails);
                 System.out.println("Doctor updated successfully.");
                 return;
@@ -78,7 +78,7 @@ public class Admin extends User {
     }
 
     public void deleteDoctor(String doctorID) {
-        boolean found = doctors.removeIf(doctor -> doctor.getDoctorID().equals(doctorID));
+        boolean found = doctors.removeIf(doctor -> doctor.getUserID().equals(doctorID));
         if (found) {
             System.out.println("Doctor deleted successfully.");
         } else {
@@ -92,7 +92,7 @@ public class Admin extends User {
             return;
         }
         for (Doctor doctor : doctors) {
-            if (doctor.getDoctorID().equals(doctorID)) {
+            if (doctor.getUserID().equals(doctorID)) {
                 System.out.println(doctor);
                 return;
             }
@@ -121,7 +121,7 @@ public class Admin extends User {
             return;
         }
         for (int i = 0; i < patients.size(); i++) {
-            if (patients.get(i).getPatientID().equals(patientID)) {
+            if (patients.get(i).getUserID().equals(patientID)) {
                 patients.set(i, newDetails);
                 System.out.println("Patient updated successfully.");
                 return;
@@ -131,7 +131,7 @@ public class Admin extends User {
     }
 
     public void deletePatient(String patientID) {
-        boolean found = patients.removeIf(patient -> patient.getPatientID().equals(patientID));
+        boolean found = patients.removeIf(patient -> patient.getUserID().equals(patientID));
         if (found) {
             System.out.println("Patient deleted successfully.");
         } else {
@@ -145,7 +145,7 @@ public class Admin extends User {
             return;
         }
         for (Patient patient : patients) {
-            if (patient.getPatientID().equals(patientID)) {
+            if (patient.getUserID().equals(patientID)) {
                 System.out.println(patient);
                 return;
             }

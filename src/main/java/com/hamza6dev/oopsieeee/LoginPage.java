@@ -85,29 +85,26 @@ public class LoginPage extends Application {
 
             try (Connection conn = DatabaseConnection.getConnection()) {
                 PreparedStatement stmt = conn.prepareStatement(
-                        "SELECT *, 'patient' AS account_type FROM patients WHERE email = ? AND password = ? " +
-                                "UNION " +
-                                "SELECT *, 'doctor' AS account_type FROM doctors WHERE email = ? AND password = ?"
+                        "SELECT * FROM user WHERE email = ? AND password = ?;"
                 );
 
                 stmt.setString(1, email);
                 stmt.setString(2, password);
-                stmt.setString(3, email);
-                stmt.setString(4, password);
 
                 ResultSet rs = stmt.executeQuery();
 
 
                 if (rs.next()) {
-                    // Login successful, redirect or display success message
-//                    showAlert(Alert.AlertType.INFORMATION, "Login Success", "Welcome back, " + resultSet.getString("name") + "!");
                     System.out.println("Login Success: " + "Welcome back, " + rs.getString("name") + "!");
-                    // Example: Redirect to another application page
-//                    DashboardPage dashboard = new DashboardPage(); // Hypothetical class for the dashboard
-//                    dashboard.start((Stage) ((Node) e.getSource()).getScene().getWindow());
+                    String accountType = rs.getString("user_type");
+                    String accountID = rs.getString("user_id");
+                    try {
+                        Dashboard dashboard = new Dashboard(accountType, accountID);
+                        dashboard.start((Stage) ((Node) e.getSource()).getScene().getWindow());
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                    }
                 } else {
-                    // Login failed
-//                    showAlert(Alert.AlertType.ERROR, "Login Error", "Invalid email or password.");
                     System.out.println("Login Error: " + "Invalid email or password.");
                 }
             } catch (Exception ex) {
@@ -151,6 +148,4 @@ public class LoginPage extends Application {
         primaryStage.setScene(scene);
         primaryStage.show();
     }
-
-
 }

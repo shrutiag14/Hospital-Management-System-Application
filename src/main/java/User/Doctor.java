@@ -13,9 +13,9 @@ import java.util.ArrayList;
 
 
 public class Doctor extends User{
-    private static final String PMDC_PATTERN = "^[a-zA-Z]{2,4}-[0-9]{4,5}"; // According to what Google said to me, I am not accountable if is not the official
+//    private static final String PMDC_PATTERN = "^[a-zA-Z]{2,4}-[0-9]{4,9}"; // According to what Google said to me, I am not accountable if is not the official
     // declaring all the attributes as private
-    private final String doctorID = User.randomIdGenerator();
+//    private final String doctorID = User.randomIdGenerator();
     private String PMDC_NO;
     private String availabilityHours;
     private double salary;
@@ -23,41 +23,39 @@ public class Doctor extends User{
     private String speciality;
     private int yearsOfExperience;
     private ArrayList<Patient> patients = new ArrayList<>();
-    private final AppointmentManager appointmentManager;
+    private AppointmentManager appointmentManager;
 
+    public Doctor() {
+
+    }
     // defining all the constructors
-    public Doctor( AppointmentManager manager, String name, LocalDate dob, String gender, String address, String phone, String email, String password, String PMDC_NO, String availabilityHours, double salary, String qualification, String speciality, int experience)
+    public Doctor(String userID, String name, LocalDate dob, String gender, String address, String phone, String email, String password, String PMDC_NO, String availabilityHours, double salary, String qualification, String speciality, int experience)
             throws InvalidNameException, InvalidDateOfBirthException, InvalidGenderException, InvalidEmailException, InvalidPasswordException{
-        super(name, dob, gender, address, phone, email, password );
+        super(userID,name, dob, gender, address, phone, email, password );
         setPMDC_NO(PMDC_NO);
         setAvailabilityHours(availabilityHours);
         setSalary(salary);
         setQualification(qualification);
         setSpeciality(speciality);
         setExperience(experience);
-        this.appointmentManager = manager;
+        this.appointmentManager = new AppointmentManager();
     }
 
-    // a very demure copy constructor
-    public Doctor(Doctor doctor) throws InvalidNameException, InvalidDateOfBirthException, InvalidGenderException, InvalidEmailException, InvalidPasswordException{
-        super(doctor.getName(), doctor.getDateOfBirth(), doctor.getGender(), doctor.getAddress(), doctor.getPhone(), doctor.getEmail(), doctor.getPassword());
-        this.appointmentManager = doctor.appointmentManager;
-        setPMDC_NO(doctor.getPMDC_NO());
-        setAvailabilityHours(doctor.getAvailabilityHours());
-        setSalary(doctor.getSalary());
-        setQualification(doctor.getQualification());
-        setSpeciality(doctor.getSpeciality());
-        setExperience(doctor.getExperience());
-        this.patients = new ArrayList<Patient>(doctor.patients); // creating the new arraylist so that the copy object doesnt affect the original object
-    }
+//    // a very demure copy constructor
+//    public Doctor(Doctor doctor) throws InvalidNameException, InvalidDateOfBirthException, InvalidGenderException, InvalidEmailException, InvalidPasswordException{
+//        super(doctor.getName(), doctor.getDateOfBirth(), doctor.getGender(), doctor.getAddress(), doctor.getPhone(), doctor.getEmail(), doctor.getPassword());
+//        this.appointmentManager = doctor.appointmentManager;
+//        setPMDC_NO(doctor.getPMDC_NO());
+//        setAvailabilityHours(doctor.getAvailabilityHours());
+//        setSalary(doctor.getSalary());
+//        setQualification(doctor.getQualification());
+//        setSpeciality(doctor.getSpeciality());
+//        setExperience(doctor.getExperience());
+//        this.patients = new ArrayList<Patient>(doctor.patients); // creating the new arraylist so that the copy object doesnt affect the original object
+//    }
 
     // defining the setters with validations
     public void setPMDC_NO(String PMDC_NO) {
-        if(!isValidPMDC(PMDC_NO)) {
-            System.out.println("Invalid PMDC");
-            this.PMDC_NO = null;
-            return;
-        }
         this.PMDC_NO = PMDC_NO;
     }
 
@@ -92,9 +90,9 @@ public class Doctor extends User{
     }
 
     // defining all the getters
-    public String getDoctorID() {
-        return doctorID;
-    }
+//    public String getDoctorID() {
+//        return doctorID;
+//    }
 
     public String getPMDC_NO() {
         return PMDC_NO;
@@ -121,9 +119,9 @@ public class Doctor extends User{
     }
 
     // validation methods
-    public static boolean isValidPMDC(String PMDC_NO) {
-        return Pattern.matches(PMDC_PATTERN, PMDC_NO);
-    }
+//    public static boolean isValidPMDC(String PMDC_NO) {
+//        return Pattern.matches(PMDC_PATTERN, PMDC_NO);
+//    }
 
     // defining class methods
     public void diagnosePatient(Patient patient, String diagnose) {
@@ -228,7 +226,7 @@ public class Doctor extends User{
 
     @Override
     public String toString() {
-        return String.format("\nDetails:\nName: %s\tAge: %ss\tGender: %s\tAddress: %s\tPhone: %s\tEmail: %s\tPassword: %s\nProfessional Details:\nDoctor ID: %s\tPMDC No: %s\tAvailability Hours: %s\tSalary: %.3f\tQualification: %s\tSpeciality: %s\tExperience: %d years\t",getName(), getAge(), getGender(), getAddress(), getPhone(), getEmail(), getPassword(), doctorID, PMDC_NO, availabilityHours, salary, qualification, speciality, yearsOfExperience);
+        return String.format("\nDetails:\nName: %s\tAge: %ss\tGender: %s\tAddress: %s\tPhone: %s\tEmail: %s\tPassword: %s\nProfessional Details:\nPMDC No: %s\tAvailability Hours: %s\tSalary: %.3f\tQualification: %s\tSpeciality: %s\tExperience: %d years\t",getName(), getAge(), getGender(), getAddress(), getPhone(), getEmail(), getPassword(), PMDC_NO, availabilityHours, salary, qualification, speciality, yearsOfExperience);
     }
 }
 

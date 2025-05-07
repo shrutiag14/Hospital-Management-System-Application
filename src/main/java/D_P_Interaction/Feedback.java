@@ -44,7 +44,7 @@ public class Feedback {
 
     // Method to display feedback
     public void displayFeedback() {
-        System.out.println("Patient ID: " + patient.getPatientID());
+        System.out.println("Patient ID: " + patient.getUserID());
         System.out.println("Doctor: " + doctor.getName());
         System.out.println("Feedback: " + feedbackMessage);
     }
