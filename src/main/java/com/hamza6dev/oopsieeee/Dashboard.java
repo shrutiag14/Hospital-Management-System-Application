@@ -1,6 +1,8 @@
 package com.hamza6dev.oopsieeee;
 import Appointment.*;
 import Appointment.Appointment.AppointmentStatus;
+import Notifications.EmailNotification;
+import User.*;
 
 import Exceptions.DuplicateAppointmentException;
 import Exceptions.InvalidAppointmentException;
@@ -18,17 +20,18 @@ import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.text.*;
 import javafx.stage.Stage;
-import User.*;
+import javax.mail.*;
+import javax.mail.Session;
+import javax.mail.internet.*;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+
+import java.sql.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Properties;
 import java.util.stream.IntStream;
 
 
@@ -93,11 +96,16 @@ public class Dashboard extends Application {
 
         Button dashboardBtn = createSidebarButton("Dashboard");
         Button patientsBtn = createSidebarButton("Patients");
+        Button doctorsBtn = createSidebarButton("Doctors");
         Button appointmentsBtn = createSidebarButton("Appointments");
-
         Button messagesBtn = createSidebarButton("Messages");
+        Button emailBtn = createSidebarButton("Email");
 
-        sidebar.getChildren().addAll(dashboardBtn, patientsBtn, appointmentsBtn, messagesBtn);
+        if (user instanceof Doctor) {
+            sidebar.getChildren().addAll(dashboardBtn, patientsBtn, appointmentsBtn, messagesBtn, emailBtn);
+        } else if (user instanceof Patient) {
+            sidebar.getChildren().addAll(dashboardBtn, doctorsBtn, appointmentsBtn, messagesBtn, emailBtn);
+        }
 
         // === Content Area (Right) ===
         VBox content = new VBox(30);
@@ -144,6 +152,16 @@ public class Dashboard extends Application {
 
         content.getChildren().addAll(profileCard, main);
 
+        // ***************************** USERS TAB ****************************
+
+        VBox users = null;
+        if (user instanceof Doctor) {
+            users = createDoctorPatients(user.getUserID());
+        }
+
+        if ( user instanceof Patient) {
+            users = createPatientDoctors(user.getUserID());
+        }
 
         // ****************************** APPOINTMENT TAB **********************8
         // Appointments Table
@@ -174,6 +192,11 @@ public class Dashboard extends Application {
         table.getColumns().addAll(idCol, patientCol, doctorCol, dateCol, timeCol, statusCol);
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
+        // appointment data
+        List<Appointment> appointments = getAppointments();
+        ObservableList<Appointment> appointmentData = FXCollections.observableArrayList(appointments);
+        table.setItems(appointmentData);
+
         // Styling for TableView
         table.setStyle(
                 "-fx-font-size: 14px;" +
@@ -190,19 +213,28 @@ public class Dashboard extends Application {
 
         // Search Bar
         TextField searchField = new TextField();
-        searchField.setPromptText("Search by name, ID, or date...");
+        searchField.setPromptText("Search by patient name, doctor name or appointment ID");
         searchField.setPrefWidth(300);
         searchField.setPrefHeight(40);
 
+        // Search Bar Listener for Real-Time Filtering
         searchField.textProperty().addListener((observable, oldValue, newValue) -> {
-            // In a real application, implement a filter logic to search appointments
-            // For instance, filter the table based on the input text
-            System.out.println("Searching: " + newValue);
+            // Filter the list of appointments
+            ObservableList<Appointment> filteredAppointments = FXCollections.observableArrayList();
+
+            for (Appointment appointment : appointmentData) {
+                // Check if the patient name or appointment ID contains the search term (case-insensitive)
+                if ((appointment.getPatient().getName().toLowerCase().contains(newValue.toLowerCase())) ||
+                        (appointment.getAppointmentID().toLowerCase().contains(newValue.toLowerCase())) ||
+                        (appointment.getDoctor().getName().toLowerCase().contains(newValue.toLowerCase()))) {
+                    filteredAppointments.add(appointment);
+                }
+            }
+
+            // Update the table view with the filtered appointments
+            table.setItems(filteredAppointments);
         });
 
-        List<Appointment> appointments = getAppointments();
-        ObservableList<Appointment> appointmentData = FXCollections.observableArrayList(appointments);
-        table.setItems(appointmentData);
 
 
         // Action Buttons
@@ -389,35 +421,41 @@ public class Dashboard extends Application {
                 return;
             }
 
+            if (!(String.valueOf(selectedAppointment.getStatus()).equalsIgnoreCase("PENDING"))) {
+                AlertDialogueBox.showAlert(Alert.AlertType.WARNING, "Status Update Error", "Cannot change status for an appointment that is not in pending stage.");
+                return;
+            }
+
             // Open the Update Appointment Dialog
             openUpdateAppointmentDialog(selectedAppointment, table);
         });
 
-        Button deleteAppointmentBtn = new Button("Delete Appointment");
-        deleteAppointmentBtn.setStyle("-fx-background-color: red; -fx-text-fill: white; -fx-font-size: 14px;");
-        deleteAppointmentBtn.setPrefHeight(40);
-        deleteAppointmentBtn.setOnAction(event -> {
+        Button cancelAppointment = new Button("Cancel Appointment");
+        cancelAppointment.setStyle("-fx-background-color: red; -fx-text-fill: white; -fx-font-size: 14px;");
+        cancelAppointment.setPrefHeight(40);
+        cancelAppointment.setOnAction(event -> {
             // Get the selected appointment from the table
             Appointment selectedAppointment = table.getSelectionModel().getSelectedItem();
 
             if (selectedAppointment == null) {
-                AlertDialogueBox.showAlert(Alert.AlertType.WARNING, "Delete Error", "Please select an appointment to delete.");
+                AlertDialogueBox.showAlert(Alert.AlertType.WARNING, "Cancel Error", "Please select an appointment to delete.");
                 return;
             }
 
             // Prompt user for confirmation before deletion
             Alert confirmationAlert = new Alert(Alert.AlertType.CONFIRMATION);
-            confirmationAlert.setTitle("Delete Confirmation");
-            confirmationAlert.setHeaderText("Are you sure you want to delete this appointment?");
-            confirmationAlert.setContentText(selectedAppointment.toString());
+            confirmationAlert.setTitle("Cancel Confirmation");
+            confirmationAlert.setHeaderText("Are you sure you want to cancel this appointment?");
 
             // Wait for user's response (OK or Cancel)
             confirmationAlert.showAndWait().ifPresent(response -> {
                 if (response == ButtonType.OK) {
                     try (Connection conn = DatabaseConnection.getConnection()) {
                         // Prepare the DELETE query
-                        String deleteQuery = "DELETE FROM appointment WHERE appointment_id = ?";
-                        try (PreparedStatement stmt = conn.prepareStatement(deleteQuery)) {
+                        String cancelQuery = "UPDATE appointment " +
+                                "SET status = 'CANCELLED' " +
+                                "WHERE appointment_id = ?";
+                        try (PreparedStatement stmt = conn.prepareStatement(cancelQuery)) {
                             // Set the appointment ID parameter
                             stmt.setString(1, selectedAppointment.getAppointmentID());
 
@@ -431,7 +469,7 @@ public class Dashboard extends Application {
                                 table.setItems(updatedData);
 
                                 // Display success message
-                                AlertDialogueBox.showAlert(Alert.AlertType.INFORMATION, "Delete Success", "Appointment deleted successfully!");
+                                AlertDialogueBox.showAlert(Alert.AlertType.INFORMATION, "Cancel Success", "Appointment cancelled successfully!");
                             } else {
                                 throw new SQLException("Appointment not found in the database.");
                             }
@@ -462,8 +500,36 @@ public class Dashboard extends Application {
             showAppointmentDetailsPopup(selectedAppointment);
         });
 
+        Button changeStatusButton = new Button("Change Status");
+        changeStatusButton.setStyle("-fx-background-color: green; -fx-text-fill: white; -fx-font-size: 14px;");
+        changeStatusButton.setPrefHeight(40);
+        changeStatusButton.setOnAction(event -> {
+            Appointment selectedAppointment = table.getSelectionModel().getSelectedItem();
+
+            if (selectedAppointment == null) {
+                AlertDialogueBox.showAlert(Alert.AlertType.WARNING, "Status Update Error", "Please select an appointment to update the status.");
+                return;
+            }
+
+            if (!(String.valueOf(selectedAppointment.getStatus()).equalsIgnoreCase("PENDING"))) {
+                AlertDialogueBox.showAlert(Alert.AlertType.WARNING, "Status Update Error", "Cannot change status for an appointment that is not in pending stage.");
+                return;
+            }
+
+            // Open Change Status Dialog
+            openChangeStatusDialog(selectedAppointment, table);
+        });
+
+
+
         // Button Layout
-        HBox buttonLayout = new HBox(10, addAppointmentBtn, updateAppointmentBtn, deleteAppointmentBtn, viewDetailsBtn);
+        HBox buttonLayout = new HBox(10);
+
+        if ( user instanceof Patient )
+            buttonLayout = new HBox(10, addAppointmentBtn, updateAppointmentBtn, cancelAppointment, viewDetailsBtn);
+        else if ( user instanceof Doctor )
+            buttonLayout = new HBox(10, changeStatusButton, viewDetailsBtn);
+
         buttonLayout.setAlignment(Pos.CENTER_LEFT);
         buttonLayout.setPadding(new Insets(10, 0, 10, 0));
 
@@ -477,20 +543,46 @@ public class Dashboard extends Application {
             content.getChildren().clear();
             content.getChildren().addAll(profileCard, main);
         });
-
-        patientsBtn.setOnAction(e -> {
+        VBox finalUsers = users;
+        patientsBtn.setOnAction(event -> {
             content.getChildren().clear();
-            content.getChildren().add(new Label("Patients"));
+
+            Text patients = new Text("Patients");
+            patients.setFont(Font.font("Arial", FontWeight.BOLD, 24));
+            patients.setFill(Color.BLUE);
+            patients.setTextAlignment(TextAlignment.LEFT);
+            VBox.setMargin(patients, new Insets(0, 0, 10, 0));
+
+            content.getChildren().addAll(patients, finalUsers);
+        });
+
+        VBox finalUsers1 = users;
+        doctorsBtn.setOnAction(event -> {
+            content.getChildren().clear();
+
+            Text doctors = new Text("Patients");
+            doctors.setFont(Font.font("Arial", FontWeight.BOLD, 24));
+            doctors.setFill(Color.BLUE);
+            doctors.setTextAlignment(TextAlignment.LEFT);
+            VBox.setMargin(doctors, new Insets(0, 0, 10, 0));
+
+            content.getChildren().addAll(doctors, finalUsers1);
         });
 
         appointmentsBtn.setOnAction(e -> {
             content.getChildren().clear();
+
             content.getChildren().addAll(appointmentsLayout);
         });
 
         messagesBtn.setOnAction(e -> {
             content.getChildren().clear();
             content.getChildren().add(new Label("Messages"));
+        });
+
+        emailBtn.setOnAction(e -> {
+            content.getChildren().clear();
+            content.getChildren().add(createEmailPage());
         });
 
         // === Final Layout with BorderPane ===
@@ -830,7 +922,6 @@ public class Dashboard extends Application {
         DatePicker datePicker = new DatePicker(appointment.getDateTime().toLocalDate());
         ComboBox<LocalTime> timeComboBox = new ComboBox<>();
         ComboBox<Doctor> doctorComboBox = new ComboBox<>();
-        ComboBox<Appointment.AppointmentStatus> statusComboBox = new ComboBox<>();
 
         // Populate Times
         for (int hour = 8; hour <= 17; hour++) {
@@ -878,17 +969,13 @@ public class Dashboard extends Application {
         });
         doctorComboBox.setValue(appointment.getDoctor());
 
-        // Populate Status
-        statusComboBox.getItems().addAll(Appointment.AppointmentStatus.values());
-        statusComboBox.setValue(appointment.getStatus());
 
         // Add Input Fields to Dialog
         dialogContainer.getChildren().addAll(
                 titleLabel,
                 createUpdateRow("New Date", datePicker),
                 createUpdateRow("New Time", timeComboBox),
-                createUpdateRow("New Doctor", doctorComboBox),
-                createUpdateRow("New Status", statusComboBox)
+                createUpdateRow("New Doctor", doctorComboBox)
         );
 
 
@@ -905,9 +992,8 @@ public class Dashboard extends Application {
             LocalDate date = datePicker.getValue();
             LocalTime time = timeComboBox.getValue();
             Doctor doctor = doctorComboBox.getValue();
-            Appointment.AppointmentStatus status = statusComboBox.getValue();
 
-            if (date == null || time == null || doctor == null || status == null) {
+            if (date == null || time == null || doctor == null) {
                 AlertDialogueBox.showAlert(Alert.AlertType.ERROR, "Validation Error", "All fields are required.");
                 return;
             }
@@ -927,7 +1013,7 @@ public class Dashboard extends Application {
                 }
 
                 // Update Appointment in Database
-                updateAppointmentInDatabase(appointment.getAppointmentID(), newDateTime, doctor, status);
+                updateAppointmentInDatabase(appointment.getAppointmentID(), newDateTime, doctor);
 
                 // Refresh the TableView
                 table.setItems(FXCollections.observableArrayList(getAppointments()));
@@ -946,7 +1032,7 @@ public class Dashboard extends Application {
         updateDialog.showAndWait();
     }
 
-    private void updateAppointmentInDatabase(String appointmentId, LocalDateTime newDateTime, Doctor newDoctor, Appointment.AppointmentStatus newStatus) throws SQLException {
+    private void updateAppointmentInDatabase(String appointmentId, LocalDateTime newDateTime, Doctor newDoctor) throws SQLException {
         // SQL Query to Update Appointment in the Database
         String updateQuery = "UPDATE appointment " +
                 "SET date_time = ?, doctor_id = ?, status = ? " +
@@ -955,9 +1041,9 @@ public class Dashboard extends Application {
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(updateQuery)) {
             // Set Parameters
-            stmt.setTimestamp(1, java.sql.Timestamp.valueOf(newDateTime)); // New Date and Time
+            stmt.setTimestamp(1, Timestamp.valueOf(newDateTime)); // New Date and Time
             stmt.setString(2, newDoctor.getUserID());                     // New Doctor ID
-            stmt.setString(3, newStatus.name());                          // New Status
+            stmt.setString(3,   "PENDING");
             stmt.setString(4, appointmentId);                             // Appointment ID
 
             // Execute the Update Query
@@ -966,6 +1052,275 @@ public class Dashboard extends Application {
                 throw new SQLException("Failed to update appointment. Appointment ID not found.");
             }
         }
+    }
+
+    private void openChangeStatusDialog(Appointment appointment, TableView<Appointment> table) {
+        // Create a Dialog for Changing Status
+        Dialog<Void> statusDialog = new Dialog<>();
+        statusDialog.setTitle("Change Appointment Status");
+
+        VBox dialogContainer = new VBox(15);
+        dialogContainer.setPadding(new Insets(20));
+
+        Label titleLabel = new Label("Change Status for Appointment: " + appointment.getAppointmentID());
+        titleLabel.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
+
+        ComboBox<AppointmentStatus> statusComboBox = new ComboBox<>();
+        statusComboBox.getItems().addAll(AppointmentStatus.values());
+        statusComboBox.setValue(appointment.getStatus());
+
+        HBox statusRow = createUpdateRow("New Status", statusComboBox);
+        dialogContainer.getChildren().addAll(titleLabel, statusRow);
+
+        // Add Change Button
+        Button changeButton = new Button("Change Status");
+        changeButton.setStyle("-fx-background-color: blue; -fx-text-fill: white;");
+
+        changeButton.setOnAction(e -> {
+            AppointmentStatus selectedStatus = statusComboBox.getValue();
+
+            if (selectedStatus == null) {
+                AlertDialogueBox.showAlert(Alert.AlertType.ERROR, "Validation Error", "Please select a status.");
+                return;
+            }
+
+            try {
+                AppointmentManager appointmentManager = new AppointmentManager();
+                appointmentManager.updateAppointmentStatus(appointment, selectedStatus);
+
+                // Refresh Table Data
+                table.setItems(FXCollections.observableArrayList(getAppointments()));
+
+                // Success Notification
+                AlertDialogueBox.showAlert(Alert.AlertType.CONFIRMATION, "Status Update Successful", "The status has been successfully updated.");
+                statusDialog.close();
+            } catch (Exception ex) {
+                AlertDialogueBox.showAlert(Alert.AlertType.ERROR, "Update Failed", "Unable to update status: " + ex.getMessage());
+            }
+        });
+
+        HBox buttons = new HBox(10, changeButton);
+        buttons.setAlignment(Pos.CENTER_RIGHT);
+
+        dialogContainer.getChildren().add(buttons);
+
+        // Set Dialog Content
+        statusDialog.getDialogPane().setContent(dialogContainer);
+        statusDialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
+
+        statusDialog.showAndWait();
+    }
+
+    public VBox createDoctorPatients (String doctorID) {
+        // Get the list of patients returned from the getAllPatientsForDoctor method
+        List<Patient> patientList = DataFetcher.getAllPatientsForDoctor(doctorID);
+
+        // Convert the list of patients to an ObservableList for TableView
+        ObservableList<Patient> patients = FXCollections.observableArrayList(patientList);
+
+        // Create the TableView
+        TableView<Patient> tableView = new TableView<>();
+        tableView.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+
+        // Style the table
+        tableView.setStyle(
+                "-fx-font-size: 14px;" +
+                        "-fx-background-color: white;" +
+                        "-fx-border-color: #ddd;" +
+                        "-fx-border-width: 0;" +
+                        "-fx-background-radius: 10px;" +
+                        "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0.1, 0, 2);"
+        );
+
+
+        // Create columns for Patient Table
+        TableColumn<Patient, String> userIdColumn = new TableColumn<>("Patient ID");
+        userIdColumn.setCellValueFactory(new PropertyValueFactory<>("userID"));
+
+        TableColumn<Patient, String> nameColumn = new TableColumn<>("Name");
+        nameColumn.setCellValueFactory(new PropertyValueFactory<>("name"));
+
+        TableColumn<Patient, String> dobColumn = new TableColumn<>("Date of Birth");
+        dobColumn.setCellValueFactory(new PropertyValueFactory<>("dateOfBirth"));
+
+        TableColumn<Patient, String> genderColumn = new TableColumn<>("Gender");
+        genderColumn.setCellValueFactory(new PropertyValueFactory<>("gender"));
+
+        TableColumn<Patient, String> addressColumn = new TableColumn<>("Address");
+        addressColumn.setCellValueFactory(new PropertyValueFactory<>("address"));
+
+        TableColumn<Patient, String> phoneColumn = new TableColumn<>("Phone");
+        phoneColumn.setCellValueFactory(new PropertyValueFactory<>("phone"));
+
+        TableColumn<Patient, Boolean> isAdmittedColumn = new TableColumn<>("Is Admitted");
+        isAdmittedColumn.setCellValueFactory(new PropertyValueFactory<>("admit"));
+
+        // Add the columns to the table
+        tableView.getColumns().addAll(userIdColumn, nameColumn, dobColumn, genderColumn, addressColumn, phoneColumn, isAdmittedColumn);
+
+        // Set the data to the table
+        tableView.setItems(patients);
+
+        // Set a placeholder for the table
+        Label placeholder = new Label("No patients found for " + user.getName() + ".");
+        placeholder.setStyle("-fx-text-fill: #888; -fx-font-size: 14px;");
+        tableView.setPlaceholder(placeholder);
+
+
+        // Add the table to a layout (VBox in this case)
+        return new VBox(20, tableView);
+    }
+
+    public VBox createPatientDoctors (String patientID) {
+        // Get the list of doctors returned from the getAllPatientsForDoctor method
+        List<Doctor> doctorList = DataFetcher.getAllDoctorsForPatient(patientID);
+
+        // Convert the list of doctors to an ObservableList for TableView
+        ObservableList<Doctor> doctors = FXCollections.observableArrayList(doctorList);
+
+        // Create the TableView
+        TableView<Doctor> tableView = new TableView<>();
+        tableView.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+
+        // Style the table
+        tableView.setStyle(
+                "-fx-font-size: 14px;" +
+                        "-fx-background-color: white;" +
+                        "-fx-border-color: #ddd;" +
+                        "-fx-border-width: 0;" +
+                        "-fx-background-radius: 10px;" +
+                        "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0.1, 0, 2);"
+        );
+
+
+        // Create columns for Patient Table
+        TableColumn<Doctor, String> userIdColumn = new TableColumn<>("Doctor ID");
+        userIdColumn.setCellValueFactory(new PropertyValueFactory<>("userID"));
+
+        TableColumn<Doctor, String> nameColumn = new TableColumn<>("Name");
+        nameColumn.setCellValueFactory(new PropertyValueFactory<>("name"));
+
+        TableColumn<Doctor, String> genderColumn = new TableColumn<>("Gender");
+        genderColumn.setCellValueFactory(new PropertyValueFactory<>("gender"));
+
+        TableColumn<Doctor, String> phoneColumn = new TableColumn<>("Phone");
+        phoneColumn.setCellValueFactory(new PropertyValueFactory<>("phone"));
+
+        TableColumn<Doctor, String> emailColumn = new TableColumn<>("Email");
+        emailColumn.setCellValueFactory(new PropertyValueFactory<>("email"));
+
+        TableColumn<Doctor, String> specialityColumn = new TableColumn<>("Speciality");
+        specialityColumn.setCellValueFactory(new PropertyValueFactory<>("speciality"));
+
+        // Add the columns to the table
+        tableView.getColumns().addAll(userIdColumn, nameColumn, genderColumn, phoneColumn, emailColumn, specialityColumn);
+
+        // Set the data to the table
+        tableView.setItems(doctors);
+
+        // Set a placeholder for the table
+        Label placeholder = new Label("No doctors found for " + user.getName() + ".");
+        placeholder.setStyle("-fx-text-fill: #888; -fx-font-size: 14px;");
+        tableView.setPlaceholder(placeholder);
+
+
+        // Add the table to a layout (VBox in this case)
+        return new VBox(20, tableView);
+    }
+
+    public VBox createEmailPage() {
+        // Main container
+        VBox container = new VBox(30);
+        container.setPadding(new Insets(20));
+        container.setAlignment(Pos.TOP_LEFT);
+
+        Text title = new Text("Send Email Notification");
+        title.setFont(Font.font("Arial", FontWeight.BOLD, 30));
+        title.setFill(Color.BLUE);
+
+        VBox form = new VBox(15);
+        form.setPadding(new Insets(30));
+        form.setMaxWidth(500);
+        form.setStyle("-fx-background-color: white; -fx-background-radius: 12; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.05), 10, 0, 0, 4);");
+
+        // Input fields
+        TextField senderEmailField = new TextField();
+        senderEmailField.setPromptText("Sender Email");
+        senderEmailField.setPrefHeight(40);
+
+        PasswordField senderPasswordField = new PasswordField();
+        senderPasswordField.setPromptText("App Password");
+        senderPasswordField.setPrefHeight(40);
+
+        TextField recipientField = new TextField();
+        recipientField.setPromptText("Recipient Email");
+        recipientField.setPrefHeight(40);
+
+        TextField subjectField = new TextField();
+        subjectField.setPromptText("Subject");
+        subjectField.setPrefHeight(40);  // New field for subject
+
+        TextArea messageArea = new TextArea();
+        messageArea.setPromptText("Type your message...");
+        messageArea.setPrefHeight(150);
+
+        Button sendBtn = new Button("Send Email");
+        sendBtn.setPrefHeight(40);
+        sendBtn.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 5px;");
+
+        sendBtn.setOnAction(e -> {
+            String senderEmail = senderEmailField.getText().trim();
+            String senderPassword = senderPasswordField.getText().trim();
+            String recipientEmail = recipientField.getText().trim();
+            String subject = subjectField.getText().trim();  // Get the subject
+            String message = messageArea.getText().trim();
+
+            if (senderEmail.isEmpty() || senderPassword.isEmpty() || recipientEmail.isEmpty() || message.isEmpty() || subject.isEmpty()) {
+                AlertDialogueBox.showAlert(Alert.AlertType.WARNING, "Missing Fields", "Please fill in all fields.");
+                return;
+            }
+
+            Properties props = new Properties();
+            props.put("mail.smtp.auth", "true");
+            props.put("mail.smtp.starttls.enable", "true");
+            props.put("mail.smtp.host", "smtp.gmail.com");
+            props.put("mail.smtp.port", "587");
+
+            Session session = Session.getInstance(props, new Authenticator() {
+                protected PasswordAuthentication getPasswordAuthentication() {
+                    return new PasswordAuthentication(senderEmail, senderPassword);
+                }
+            });
+
+            try {
+                Message email = new MimeMessage(session);
+                email.setFrom(new InternetAddress(senderEmail));
+                email.setRecipients(Message.RecipientType.TO, InternetAddress.parse(recipientEmail));
+                email.setSubject(subject);  // Set the subject of the email
+                email.setText(message);
+                Transport.send(email);
+
+                AlertDialogueBox.showAlert(Alert.AlertType.INFORMATION, "Success", "Email sent to: " + recipientEmail);
+
+            } catch (AuthenticationFailedException ex) {
+                AlertDialogueBox.showAlert(Alert.AlertType.ERROR, "Authentication Failed",
+                        "It looks like your email or password is incorrect.\n\n"
+                                + "If you're using Gmail, you must enable 2-Step Verification and generate an App Password.\n\n"
+                                + "Steps:\n"
+                                + "1. Go to your Google Account > Security\n"
+                                + "2. Turn on 2-Step Verification\n"
+                                + "3. Under 'Signing in to Google', choose 'App Passwords'\n"
+                                + "4. Generate a password and paste it here instead of your regular password.");
+            } catch (MessagingException ex) {
+                ex.printStackTrace();
+                AlertDialogueBox.showAlert(Alert.AlertType.ERROR, "Error", "Failed to send email. Please try again.");
+            }
+        });
+
+        form.getChildren().addAll(senderEmailField, senderPasswordField, recipientField, subjectField, messageArea, sendBtn);  // Add subjectField to form
+        container.getChildren().addAll(title, form);
+
+        return container;
     }
 
     public static void main(String[] args) {

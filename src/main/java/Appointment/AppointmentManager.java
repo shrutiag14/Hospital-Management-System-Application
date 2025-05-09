@@ -28,7 +28,7 @@ public class AppointmentManager {
     public void requestAppointment(LocalDateTime dateTime, Doctor doctor, Patient patient)
             throws InvalidAppointmentException, DuplicateAppointmentException {
         if (dateTime == null || doctor == null || patient == null) {
-            AlertDialogueBox.showAlert(Alert.AlertType.ERROR, "Appointment request failed.", "Please fill all the feilds to request an appointment.");
+            AlertDialogueBox.showAlert(Alert.AlertType.ERROR, "Appointment request failed.", "Please fill all the fields to request an appointment.");
             return;
         }
 
@@ -132,18 +132,38 @@ public class AppointmentManager {
 
 
     public void updateAppointmentStatus(Appointment appointment, Appointment.AppointmentStatus newStatus)
-            throws InvalidAppointmentException, AppointmentNotFoundException, DuplicateAppointmentException {
+            throws InvalidAppointmentException, AppointmentNotFoundException {
 
         if (appointment == null || newStatus == null) {
             throw new InvalidAppointmentException("Cannot update the status. Appointment or new date & time cannot be null.");
         }
 
-        if (!appointments.contains(appointment)) {
-            throw new AppointmentNotFoundException("Cannot update status. Appointment not found in the system.");
-        }
+        // Write the SQL query to update the appointment status in the database
+        String updateQuery = "UPDATE appointment SET status = ? WHERE appointment_id = ?";
 
-        appointment.updateStatus(newStatus);
-        System.out.println("Appointment status updated successfully to" + newStatus + " .");
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(updateQuery)) {
+
+            // Set the parameters for the prepared statement
+            stmt.setString(1, newStatus.name());    // Set the new status
+            stmt.setString(2, appointment.getAppointmentID()); // Set the appointment ID
+
+            // Execute the update query
+            int rowsUpdated = stmt.executeUpdate();
+            if (rowsUpdated > 0) {
+                // Success message if the update is successful
+                AlertDialogueBox.showAlert(Alert.AlertType.CONFIRMATION, "Appointment Status Updated!", "The appointment status has been updated to " + newStatus.name());
+            } else {
+                System.out.println("Failed to update appointment status in the database.");
+                AlertDialogueBox.showAlert(Alert.AlertType.ERROR, "Appointment Status Update Failed!", "Failed to update the appointment status.");
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            AlertDialogueBox.showAlert(Alert.AlertType.ERROR, "Appointment Status Update Failed!", "Failed to update the appointment status.");
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public ArrayList<Appointment> getAppointments() {

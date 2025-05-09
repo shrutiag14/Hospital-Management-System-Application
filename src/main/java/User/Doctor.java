@@ -94,7 +94,7 @@ public class Doctor extends User{
         this.yearsOfExperience = experience;
     }
 
-    public void setConsulationFee(double fee) {
+    public void setConsultationFee(double fee) {
         this.consultationFee = fee;
     }
 
