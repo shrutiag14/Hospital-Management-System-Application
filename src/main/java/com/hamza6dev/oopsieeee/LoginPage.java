@@ -13,6 +13,7 @@ import javafx.stage.Stage;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import User.*;
 
 public class LoginPage extends Application {
 
@@ -73,45 +74,66 @@ public class LoginPage extends Application {
         loginBtn.setMaxWidth(Double.MAX_VALUE);
 
         // Inside the LoginPage class
-        loginBtn.setOnAction(e -> {
-            String email = emailField.getText().trim();
-            String password = passwordField.getText().trim();
+        loginBtn.setOnAction(e-> {
+            System.out.println("========== Login Attempt ==========");
 
-            if (email.isEmpty() || password.isEmpty()) {
-//                showAlert(Alert.AlertType.ERROR, "Login Error", "Email and Password are required!");
-                System.out.println("Login Error: " + "Email and Password are required!");
-                return;
-            }
+            // Fetch user inputs
+            String email = emailField.getText();
+            String password = passwordField.getText();
 
-            try (Connection conn = DatabaseConnection.getConnection()) {
-                PreparedStatement stmt = conn.prepareStatement(
-                        "SELECT * FROM user WHERE email = ? AND password = ?;"
-                );
-
-                stmt.setString(1, email);
-                stmt.setString(2, password);
-
-                ResultSet rs = stmt.executeQuery();
-
-
-                if (rs.next()) {
-                    System.out.println("Login Success: " + "Welcome back, " + rs.getString("name") + "!");
-                    String accountType = rs.getString("user_type");
-                    String accountID = rs.getString("user_id");
-                    try {
-                        Dashboard dashboard = new Dashboard(accountType, accountID);
-                        dashboard.start((Stage) ((Node) e.getSource()).getScene().getWindow());
-                    } catch (Exception ex) {
-                        ex.printStackTrace();
-                    }
-                } else {
-                    System.out.println("Login Error: " + "Invalid email or password.");
+            try {
+                // Validation checks
+                if (email == null || email.isEmpty()) {
+                    throw new IllegalArgumentException("Email field cannot be empty.");
                 }
+                if (!User.isValidEmail(email)) {
+                    throw new IllegalArgumentException("Invalid email! Please provide a valid email.");
+                }
+                if (password == null || password.isEmpty()) {
+                    throw new IllegalArgumentException("Password field cannot be empty.");
+                }
+                if (!User.isValidPassword(password)) {
+                    throw new IllegalArgumentException("Invalid password! Password must be between 8-20 characters and contain valid characters.");
+                }
+
+                // Check user credentials in the database
+                try (Connection conn = DatabaseConnection.getConnection()) {
+                    String sql = "SELECT * FROM user WHERE email = ? AND password = ?"; // Replace 'users' with your table name
+                    PreparedStatement stmt = conn.prepareStatement(sql);
+                    stmt.setString(1, email);
+                    stmt.setString(2, password);
+                    ResultSet rs = stmt.executeQuery();
+
+                    if (rs.next()) {
+                        // Successfully authenticated
+                        AlertDialogueBox.showAlert(Alert.AlertType.INFORMATION, "Login Success", "Welcome back, " + rs.getString("name") + "!");
+                        String accountType = rs.getString("user_type");
+                        String accountID = rs.getString("user_id");
+                        try {
+                            Dashboard dashboard = new Dashboard(accountType, accountID);
+                            dashboard.start((Stage) ((Node) e.getSource()).getScene().getWindow());
+                        } catch (Exception ex) {
+                            ex.printStackTrace();
+                        }
+                    } else {
+                        // Invalid credentials
+                        AlertDialogueBox.showAlert(Alert.AlertType.ERROR, "Authentication Failed", "Incorrect email or password. Please try again.");
+                    }
+
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    AlertDialogueBox.showAlert(Alert.AlertType.ERROR, "Database Error", "An error occurred while connecting to the database.");
+                }
+
+            } catch (IllegalArgumentException ex) {
+                // Display validation error to the user
+                AlertDialogueBox.showAlert(Alert.AlertType.WARNING, "Invalid Input", ex.getMessage());
             } catch (Exception ex) {
                 ex.printStackTrace();
-//                showAlert(Alert.AlertType.ERROR, "Database Error", "Failed to connect to the database.");
-                System.out.println("Database Error: " + "Failed to connect to the database.");
+                AlertDialogueBox.showAlert(Alert.AlertType.ERROR, "Unexpected Error", "An unexpected error occurred. Please try again later.");
             }
+
+            System.out.println("==================================");
         });
 
         // --- Signup Text ---

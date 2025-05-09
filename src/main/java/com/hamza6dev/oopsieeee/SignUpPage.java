@@ -12,7 +12,9 @@ import javafx.stage.Stage;
 import User.*;
 
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.PreparedStatement;
+import java.time.LocalDate;
 
 public class SignUpPage extends Application {
 
@@ -151,7 +153,7 @@ public class SignUpPage extends Application {
 
         signUpBtn.setOnAction(e -> {
             System.out.println("========== Sign-Up Data ==========");
-
+            String userId = User.randomIdGenerator();
             // Storing common fields
             String name = nameField.getText();
             String email = emailField.getText();
@@ -160,7 +162,7 @@ public class SignUpPage extends Application {
             String selectedGender = null;
 
             // Initialize placeholders for dynamic fields (common to both account types)
-            String dob = null;
+            LocalDate dob = null;
             String address = null;
             String phone = null;
 
@@ -182,13 +184,17 @@ public class SignUpPage extends Application {
                         case "PMDC Number" -> pmdcNumber = textField.getText();
                         case "Qualifications" -> qualifications = textField.getText();
                         case "Specialty" -> specialty = textField.getText();
-                        case "Years of Experience" -> experience = Integer.parseInt(textField.getText());
+                        case "Years of Experience" -> {
+                            if (!textField.getText().isEmpty()) {
+                                experience = Integer.parseInt(textField.getText());
+                            }
+                        }
                     }
                 } else if (field instanceof PasswordField) {
                     // Already captured in common fields
                 } else if (field instanceof DatePicker) {
                     DatePicker dobPicker = (DatePicker) field;
-                    dob = (dobPicker.getValue() != null) ? dobPicker.getValue().toString() : "Not selected";
+                    dob = dobPicker.getValue();
                 } else if (field instanceof CheckBox) {
                     CheckBox isAdmitBox = (CheckBox) field;
                     isAdmitted = isAdmitBox.isSelected();
@@ -201,51 +207,135 @@ public class SignUpPage extends Application {
                 }
             }
 
-            try (Connection conn = DatabaseConnection.getConnection()) {
-                if(accountType.equals("Patient")) {
-                    String sql = "INSERT INTO patients (patient_id, name, email, password, gender, address, phone, date_of_birth, is_admit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
-                    PreparedStatement stmt = conn.prepareStatement(sql);
-                    stmt.setString(1, User.randomIdGenerator());
-                    stmt.setString(2, name);
-                    stmt.setString(3, email);
-                    stmt.setString(4, password);
-                    stmt.setString(5, selectedGender); // whatever you selected
-                    stmt.setString(6,  address);
-                    stmt.setString(7, phone);
-                    stmt.setDate(8, dob != null ? java.sql.Date.valueOf(dob) : null);
-                    stmt.setBoolean(9,  isAdmitted);
-
-                    stmt.executeUpdate();
-                    System.out.println("Patient successfully inserted!");
-                } else if(accountType.equals("Doctor")) {
-                    String sql = "INSERT INTO doctors (doctor_id, name, email, password, gender, address, phone, date_of_birth, pmdc_no, availability_hours, salary, qualifications, speciality, experience) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?, ?,?, ?)";
-                    PreparedStatement stmt = conn.prepareStatement(sql);
-                    stmt.setString(1, User.randomIdGenerator());
-                    stmt.setString(2, name);
-                    stmt.setString(3, email);
-                    stmt.setString(4, password);
-                    stmt.setString(5, selectedGender); // whatever you selected
-                    stmt.setString(6,  address);
-                    stmt.setString(7, phone);
-                    stmt.setDate(8, dob != null ? java.sql.Date.valueOf(dob) : null);
-                    stmt.setString(9,  pmdcNumber);
-                    stmt.setString(10, "9AM-5PM");
-                    stmt.setDouble(11, 10000);
-                    stmt.setString(12, qualifications);
-                    stmt.setString(13, specialty);
-                    stmt.setInt(14, experience);
-
-
-                    stmt.executeUpdate();
-                    System.out.println("Patient successfully inserted!");
+            // Validation before running the SQL queries
+            try {
+                if (name == null || name.isEmpty()) {
+                    throw new IllegalArgumentException("Name cannot be empty.");
+                }
+                if (email == null || !User.isValidEmail(email)) {
+                    throw new IllegalArgumentException("Invalid email. Please provide a valid email.");
+                }
+                if (password == null || !User.isValidPassword(password)) {
+                    throw new IllegalArgumentException("Invalid password. It must be between 8-20 characters and contain valid characters.");
+                }
+                if (selectedGender == null) {
+                    throw new IllegalArgumentException("Please select a gender.");
+                }
+                if (dob == null) {
+                    throw new IllegalArgumentException("Please select a valid date of birth.");
+                }
+                if (address == null || address.isEmpty()) {
+                    throw new IllegalArgumentException("Address cannot be empty.");
+                }
+                if (phone == null || phone.isEmpty()) {
+                    throw new IllegalArgumentException("Phone cannot be empty.");
                 }
 
-            } catch (Exception ex) {
-                ex.printStackTrace();
+                if (accountType.equalsIgnoreCase("Doctor")) {
+                    if (pmdcNumber == null || pmdcNumber.isEmpty()) {
+                        throw new IllegalArgumentException("PMDC number cannot be empty for a Doctor account.");
+                    }
+                    if (qualifications == null || qualifications.isEmpty()) {
+                        throw new IllegalArgumentException("Qualification cannot be empty for a Doctor account.");
+                    }
+                    if (specialty == null || specialty.isEmpty()) {
+                        throw new IllegalArgumentException("Specialty cannot be empty for a Doctor account.");
+                    }
+                    if (pmdcNumber == null || pmdcNumber.isEmpty()) {
+                        throw new IllegalArgumentException("PMDC Number cannot be empty for doctor accounts.");
+                    }
+                } else if (accountType.equalsIgnoreCase("Patient")) {
+
+                }
+
+                System.out.println("========== Validated Data ==========");
+
+                // If all validations pass, insert data into the database
+                try (Connection conn = DatabaseConnection.getConnection()) {
+                    if (accountType.equalsIgnoreCase("patient")) {
+                        // Query for inserting into User table
+                        String userQuery = "INSERT INTO User (user_id, name, date_of_birth, gender, address, phone, email, password, user_type) " +
+                                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'patient')";
+
+                        // Query for inserting into Patient table
+                        String patientQuery = "INSERT INTO Patient (patient_id, is_admitted, pending_fee) VALUES (?, ?, 0)";
+
+                        PreparedStatement userStmt = conn.prepareStatement(userQuery);
+                        PreparedStatement patientStmt = conn.prepareStatement(patientQuery);
+
+                        // Insert into User table
+                        userStmt.setString(1, userId);
+                        userStmt.setString(2, name);
+                        userStmt.setDate(3, Date.valueOf(dob)); // Assuming date_of_birth is passed as a String in YYYY-MM-DD format
+                        userStmt.setString(4, selectedGender);
+                        userStmt.setString(5, address);
+                        userStmt.setString(6, phone);
+                        userStmt.setString(7, email);
+                        userStmt.setString(8, password);
+                        userStmt.executeUpdate();
+
+                        // Insert into Patient table
+                        patientStmt.setString(1, userId); // Use the same user_id as patient_id
+                        patientStmt.setBoolean(2, isAdmitted); // True/False or 1/0
+                        patientStmt.executeUpdate();
+
+                        System.out.println("New patient entry successfully inserted.");
+                    } else if(accountType.equalsIgnoreCase("doctor")) {
+                        String userQuery = "INSERT INTO User (user_id, name, date_of_birth, gender, address, phone, email, password, user_type) " +
+                                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'doctor')";
+
+                        // Query to insert into Doctor table
+                        String doctorQuery = "INSERT INTO Doctor (doctor_id, PMDC_NO, salary, qualification, speciality, years_experience, shift_start_time, shift_end_time, consultation_fee) " +
+                                "VALUES (?, ?, ?, ?, ?, ?, '09:00', '17:00', 200.0)";
+
+                        PreparedStatement userStmt = conn.prepareStatement(userQuery);
+                        PreparedStatement doctorStmt = conn.prepareStatement(doctorQuery);
+
+                            // Insert into User table
+                            userStmt.setString(1, userId);
+                            userStmt.setString(2, name);
+                            userStmt.setDate(3, Date.valueOf(dob)); // Assuming date_of_birth is passed in YYYY-MM-DD format
+                            userStmt.setString(4, selectedGender);
+                            userStmt.setString(5, address);
+                            userStmt.setString(6, phone);
+                            userStmt.setString(7, email);
+                            userStmt.setString(8, password);
+                            userStmt.executeUpdate();
+
+                            // Insert into Doctor table
+                            doctorStmt.setString(1, userId);  // Use the same user_id as doctor_id
+                            doctorStmt.setString(2, pmdcNumber);
+                            doctorStmt.setDouble(3, 69000);
+                            doctorStmt.setString(4, qualifications);
+                            doctorStmt.setString(5, specialty);
+                            doctorStmt.setInt(6, experience);
+                            doctorStmt.executeUpdate();
+                            System.out.println("New doctor entry successfully inserted.");
+
+                    }
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    AlertDialogueBox.showAlert(Alert.AlertType.ERROR, "Database Error", "An error occurred while inserting the data. Please try again.");
+                }
+
+                // redirecting user to dashboard once he/she is signed yp
+                try {
+                    Dashboard dashboard = new Dashboard(accountType, userId);
+                    dashboard.start((Stage) ((Node) e.getSource()).getScene().getWindow());
+                } catch (Exception ex) {
+                    AlertDialogueBox.showAlert(Alert.AlertType.ERROR, "Application Error: ", "An error occurred while redirecting to the dashboard. Please log in again to continue.");
+                    HelloApplication application = new HelloApplication();
+                    application.start(primaryStage);
+                    ex.printStackTrace();
+                }
+
+                } catch (IllegalArgumentException ex) {
+                AlertDialogueBox.showAlert(Alert.AlertType.WARNING, "Invalid Input", ex.getMessage());
             }
 
             System.out.println("==================================");
         });
+
 
         // Back to Login
         Label alreadyHave = new Label("Already have an account?");
@@ -288,5 +378,4 @@ public class SignUpPage extends Application {
         primaryStage.setScene(scene);
         primaryStage.show();
     }
-
 }

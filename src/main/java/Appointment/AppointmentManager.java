@@ -1,7 +1,15 @@
 package Appointment;
 import User.*;
 import Exceptions.*;
+import com.hamza6dev.oopsieeee.AlertDialogueBox;
+import com.hamza6dev.oopsieeee.DataFetcher;
+import com.hamza6dev.oopsieeee.DatabaseConnection;
+import javafx.scene.control.Alert;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.time.LocalDateTime;
 
@@ -20,19 +28,53 @@ public class AppointmentManager {
     public void requestAppointment(LocalDateTime dateTime, Doctor doctor, Patient patient)
             throws InvalidAppointmentException, DuplicateAppointmentException {
         if (dateTime == null || doctor == null || patient == null) {
-            throw new InvalidAppointmentException("Appointment request failed. Date & Time, doctor, or patient cannot be null.");
+            AlertDialogueBox.showAlert(Alert.AlertType.ERROR, "Appointment request failed.", "Please fill all the feilds to request an appointment.");
+            return;
         }
 
         if (dateTime.isBefore(LocalDateTime.now())) {
-            throw new InvalidAppointmentException("Appointment request failed. Appointment date & time cannot be in the past.");
+            AlertDialogueBox.showAlert(Alert.AlertType.ERROR, "Appointment request failed.", "Please choose a date & time in the future.");
+            return;
         }
 
         if (isDuplicateAppointment(dateTime, doctor, patient)) {
-            throw new DuplicateAppointmentException("Appointment request failed. A similar appointment already exists.");
+            AlertDialogueBox.showAlert(Alert.AlertType.ERROR, "Appointment request failed.", "A similar appointment already exists at the chosen time.");
+            return;
         }
 
-        appointments.add(new Appointment(dateTime, doctor, patient, Appointment.AppointmentStatus.PENDING));
-        System.out.println("Appointment successfully requested for: " + dateTime);
+        // Create a new Appointment Object
+        Appointment newApt = new Appointment(dateTime, doctor, patient, Appointment.AppointmentStatus.PENDING);
+
+        // Add the appointment to the database
+        String insertQuery = "INSERT INTO appointment (appointment_id, date_time, doctor_id, patient_id, status) " +
+                "VALUES (?, ?, ?, ?, ?);";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(insertQuery)) {
+
+            // Set the parameters for the prepared statement
+            stmt.setString(1, User.randomIdGenerator()); // Generate a unique appointment ID
+            stmt.setTimestamp(2, java.sql.Timestamp.valueOf(dateTime)); // Convert LocalDateTime to SQL Timestamp
+            stmt.setString(3, doctor.getUserID()); // Doctor's ID
+            stmt.setString(4, patient.getUserID()); // Patient's ID
+            stmt.setString(5, newApt.getStatus().name()); // Appointment status
+
+            // Execute the query
+            int rowsInserted = stmt.executeUpdate();
+            if (rowsInserted > 0) {
+                // Add to the local appointments store if the insert is successful
+                appointments.add(newApt);
+                AlertDialogueBox.showAlert(Alert.AlertType.CONFIRMATION, "Appointment Booked!", "The appointment has been scheduled for " + newApt.getDateTime());
+            } else {
+                System.out.println("Failed to insert the appointment into the database.");
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            throw new InvalidAppointmentException("Database Error: Unable to create the appointment.");
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
 
@@ -212,14 +254,46 @@ public class AppointmentManager {
     }
 
     public boolean isDuplicateAppointment(LocalDateTime dateTime, Doctor doctor, Patient patient) {
-        for (Appointment appointment : appointments) {
+        // Initialize the list to store appointments fetched from the database
+        ArrayList<Appointment> allAppointments = new ArrayList<>();
+
+        // The SQL query to fetch appointments
+        String query = "SELECT appointment_id, date_time, doctor_id, patient_id, status FROM appointment";
+
+        // Fetch appointments from the database
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query);
+             ResultSet rs = stmt.executeQuery()) {
+
+            while (rs.next()) {
+                // Extract data from the ResultSet
+                String appointmentId = rs.getString("appointment_id");
+                LocalDateTime appointmentDateTime = rs.getTimestamp("date_time").toLocalDateTime();
+                String doctorId = rs.getString("doctor_id");
+                String patientId = rs.getString("patient_id");
+                String status = rs.getString("status");
+
+                // Fetch doctor and patient details (you can use a data-fetching utility, assuming it's already implemented)
+                Doctor fetchedDoctor = DataFetcher.getDoctorData("doctor", doctorId); // Fetch doctor data
+                Patient fetchedPatient = DataFetcher.getPatientData("patient", patientId); // Fetch patient data
+
+                // Create an Appointment object and add it to the list
+                allAppointments.add(new Appointment(appointmentId, appointmentDateTime, fetchedDoctor, fetchedPatient, Appointment.AppointmentStatus.valueOf(status)));
+            }
+        } catch (SQLException | InvalidAppointmentException e) {
+            e.printStackTrace();
+        }
+
+        // Check if the provided appointment details match any of the fetched appointments
+        for (Appointment appointment : allAppointments) {
             if (appointment.getDateTime().equals(dateTime) &&
                     appointment.getDoctor().equals(doctor) &&
                     appointment.getPatient().equals(patient)) {
-                return true;
+                return true; // Duplicate found
             }
         }
-        return false;
+
+        return false; // No duplicates found
     }
 
     public boolean contains(Appointment appointment) {

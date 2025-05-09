@@ -151,6 +151,19 @@ public class Patient extends User {
     }
 
     @Override
+    public boolean equals(Object obj) {
+        // Check if the object is the same instance
+        if (this == obj) return true;
+
+        // Check if the object is null or not of the same class
+        if (obj == null || getClass() != obj.getClass()) return false;
+
+        // Cast to Patient and compare userID
+        Patient other = (Patient) obj;
+        return this.getUserID().equals(other.getUserID());
+    }
+
+    @Override
     public void cancelAppointment(Appointment appointment) {
         try {
             // Parameter check

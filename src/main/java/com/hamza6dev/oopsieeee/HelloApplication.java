@@ -105,6 +105,11 @@ public class HelloApplication extends Application {
 
         Button bookBtn = new Button("Book an appointment →");
         bookBtn.setStyle("-fx-background-color: blue; -fx-text-fill: white; -fx-font-size: 13px; -fx-padding: 5px 8px");
+        bookBtn.setOnAction(e -> {
+            AppointmentBookingPage bookingPage = new AppointmentBookingPage();
+            bookingPage.start((Stage) ((Node) e.getSource()).getScene().getWindow());
+        });
+
         Button watchBtn = new Button("▶ Watch videos");
         watchBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: blue; -fx-font-size: 13px; -fx-padding: 5px 8px");
 
