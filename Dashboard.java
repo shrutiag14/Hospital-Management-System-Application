@@ -7,6 +7,7 @@ import User.*;
 
 import Exceptions.DuplicateAppointmentException;
 import Exceptions.InvalidAppointmentException;
+import HealthData.Vitals;
 import javafx.application.Application;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -104,9 +105,16 @@ public class Dashboard extends Application {
         Button appointmentsBtn = createSidebarButton("Appointments");
         Button messagesBtn = createSidebarButton("Messages");
         Button emailBtn = createSidebarButton("Email");
+        Button patientEvaluation = createSidebarButton("Patient Evaluation");
 
         if (user instanceof Doctor) {
-            sidebar.getChildren().addAll(dashboardBtn, patientsBtn, appointmentsBtn, messagesBtn, emailBtn);
+            Button vitalsBtn = createSidebarButton("View Vitals");
+            vitalsBtn.setOnAction(_ -> {
+                content.getChildren().clear();
+                content.getChildren().add(createVitalsViewPage());
+            });
+            sidebar.getChildren().addAll(dashboardBtn, patientsBtn, appointmentsBtn, vitalsBtn, messagesBtn, emailBtn,
+                    patientEvaluation);
         } else if (user instanceof Patient) {
             Button uploadVitalsBtn = createSidebarButton("Upload Vitals");
             uploadVitalsBtn.setOnAction(_ -> {
@@ -596,6 +604,11 @@ public class Dashboard extends Application {
         emailBtn.setOnAction(e -> {
             content.getChildren().clear();
             content.getChildren().add(createEmailPage());
+        });
+
+        patientEvaluation.setOnAction(e -> {
+            content.getChildren().clear();
+            content.getChildren().add(createEvaluationPage(user.getUserID()));
         });
 
         // === Final Layout with BorderPane ===
@@ -1396,6 +1409,167 @@ public class Dashboard extends Application {
 
             stmt.executeBatch();
         }
+    }
+
+    private VBox createVitalsViewPage() {
+        VBox container = new VBox(20);
+        container.setPadding(new Insets(20));
+
+        Label title = new Label("Patient Vitals");
+        title.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
+
+        // Patient selection dropdown
+        ComboBox<Patient> patientSelector = new ComboBox<>();
+        patientSelector.setPromptText("Select a patient");
+
+        // Load patients under this doctor
+        List<Patient> patients = DataFetcher.getAllPatientsForDoctor(user.getUserID());
+        patientSelector.getItems().addAll(patients);
+
+        patientSelector.setCellFactory(param -> new ListCell<Patient>() {
+            @Override
+            protected void updateItem(Patient patient, boolean empty) {
+                super.updateItem(patient, empty);
+                setText(empty || patient == null ? null : patient.getName());
+            }
+        });
+
+        patientSelector.setButtonCell(new ListCell<Patient>() {
+            @Override
+            protected void updateItem(Patient patient, boolean empty) {
+                super.updateItem(patient, empty);
+                setText(empty || patient == null ? null : patient.getName());
+            }
+        });
+
+        // Table for vitals
+        TableView<Vitals> vitalsTable = new TableView<>();
+        vitalsTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+
+        TableColumn<Vitals, String> timeCol = new TableColumn<>("Recorded At");
+        timeCol.setCellValueFactory(new PropertyValueFactory<>("recordedAt"));
+
+        TableColumn<Vitals, Integer> heartRateCol = new TableColumn<>("Heart Rate");
+        heartRateCol.setCellValueFactory(new PropertyValueFactory<>("heartRate"));
+
+        TableColumn<Vitals, Integer> oxygenCol = new TableColumn<>("Oxygen Level");
+        oxygenCol.setCellValueFactory(new PropertyValueFactory<>("oxygenLevel"));
+
+        TableColumn<Vitals, String> bpCol = new TableColumn<>("Blood Pressure");
+        bpCol.setCellValueFactory(new PropertyValueFactory<>("bloodPressure"));
+
+        TableColumn<Vitals, Double> tempCol = new TableColumn<>("Temperature");
+        tempCol.setCellValueFactory(new PropertyValueFactory<>("temperature"));
+
+        vitalsTable.getColumns().addAll(timeCol, heartRateCol, oxygenCol, bpCol, tempCol);
+
+        patientSelector.setOnAction(e -> {
+            Patient selected = patientSelector.getValue();
+            if (selected != null) {
+                ObservableList<Vitals> vitals = FXCollections
+                        .observableArrayList(fetchVitalsForPatient(selected.getUserID()));
+                vitalsTable.setItems(vitals);
+            }
+        });
+
+        container.getChildren().addAll(title, patientSelector, vitalsTable);
+        return container;
+    }
+
+    private List<Vitals> fetchVitalsForPatient(String patientID) {
+        List<Vitals> vitalsList = new ArrayList<>();
+        String query = "SELECT recorded_at, heart_rate, oxygen_level, blood_pressure, temperature FROM vitalsign_history WHERE patient_id = ? ORDER BY recorded_at DESC";
+        try (Connection conn = DatabaseConnection.getConnection();
+                PreparedStatement stmt = conn.prepareStatement(query)) {
+            stmt.setString(1, patientID);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    vitalsList.add(new Vitals(
+                            rs.getTimestamp("recorded_at").toString(),
+                            rs.getInt("heart_rate"),
+                            rs.getInt("oxygen_level"),
+                            rs.getString("blood_pressure"),
+                            rs.getDouble("temperature")));
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return vitalsList;
+    }
+
+    public VBox createEvaluationPage(String doctorID) {
+        VBox mainLayout = new VBox(20);
+        mainLayout.setStyle("-fx-padding: 20; -fx-alignment: top-left;");
+
+        Text heading = new Text("Patient Evaluation");
+        heading.setFont(Font.font("Arial", FontWeight.BOLD, 30));
+        heading.setFill(Color.BLUE);
+
+        ComboBox<String> patientDropdown = new ComboBox<>();
+        patientDropdown.setPromptText("Select a patient");
+
+        // Fetch patient data associated with the specific doctor
+        ArrayList<Patient> patientsList = DataFetcher.getAllPatientsForDoctor(doctorID);
+        for (Patient patient : patientsList) {
+            patientDropdown.getItems().add(patient.getUserID() + " - " + patient.getName());
+        }
+
+        VBox detailsContainer = new VBox(20); // Box to hold patient details dynamically
+        detailsContainer.setStyle("-fx-background-color: white; "
+                + "-fx-border-color: #ddd; -fx-border-width: 1; "
+                + "-fx-background-radius: 10; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0.1, 0, 2);");
+        detailsContainer.setPrefWidth(800); // Optional: Adjust the width to match `renderPatientContent`
+
+        // Event to display selected patient information
+        patientDropdown.setOnAction(e -> {
+            String selectedValue = patientDropdown.getSelectionModel().getSelectedItem();
+
+            if (selectedValue != null) {
+                String patientId = selectedValue.split(" - ")[0];
+
+                try {
+                    Patient patient = DataFetcher.getPatientData("patient", patientId);
+
+                    if (patient != null) {
+                        // Clear previous details
+                        detailsContainer.getChildren().clear();
+
+                        // Add sections for patient information (Left & Right Infos)
+                        VBox leftInfo = new VBox(10,
+                                createInfoRow("User ID:", patient.getUserID()),
+                                createInfoRow("Name:", patient.getName()),
+                                createInfoRow("Date of Birth:", String.valueOf(patient.getDateOfBirth())),
+                                createInfoRow("Gender:", patient.getGender()));
+                        leftInfo.setStyle("-fx-padding: 10;");
+
+                        VBox rightInfo = new VBox(10,
+                                createInfoRow("Email:", patient.getEmail()),
+                                createInfoRow("Phone:", patient.getPhone()),
+                                createInfoRow("Address:", patient.getAddress()),
+                                createInfoRow("Is Admitted:", patient.isAdmit() ? "Yes" : "No"));
+                        rightInfo.setStyle("-fx-padding: 10;");
+
+                        // Combine left and right sections
+                        HBox infoSection = new HBox(40, leftInfo, rightInfo);
+                        infoSection.setAlignment(Pos.TOP_LEFT);
+
+                        // Add all sections to the container
+                        detailsContainer.getChildren().addAll(infoSection);
+                    } else {
+                        detailsContainer.getChildren().clear();
+                        detailsContainer.getChildren().add(new Label("No details available."));
+                    }
+                } catch (SQLException ex) {
+                    ex.printStackTrace();
+                    detailsContainer.getChildren().clear();
+                    detailsContainer.getChildren().add(new Label("Error fetching patient data."));
+                }
+            }
+        });
+
+        mainLayout.getChildren().addAll(heading, patientDropdown, detailsContainer);
+        return mainLayout;
     }
 
     public static void main(String[] args) {
