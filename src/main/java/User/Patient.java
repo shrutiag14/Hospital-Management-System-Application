@@ -38,16 +38,16 @@ public class Patient extends User {
         this.appointmentManager = new AppointmentManager();
     }
 
-//    // copy constructor
-//    public Patient(Patient patient) throws InvalidNameException, InvalidDateOfBirthException, InvalidGenderException, InvalidEmailException, InvalidPasswordException {
-//        super(patient.getName(), patient.getDateOfBirth(), patient.getGender(), patient.getAddress(), patient.getPhone(), patient.getEmail(), patient.getPassword());
-//        this.isAdmit = patient.isAdmit;
-//        this.pendingFee = patient.pendingFee;
-//        this.diagnosis.addAll(patient.diagnosis);
-//        this.feedbacks = new ArrayList<>(patient.feedbacks); // creating the new arraylist so that the copy object doesnt affect the original object
-//        this.appointmentManager = patient.appointmentManager;
-//        this.checkupHistory = new ArrayList<>(patient.checkupHistory); // creating the new arraylist so that the copy object doesnt affect the original object
-//    }
+    // copy constructor
+    public Patient(Patient patient) throws InvalidNameException, InvalidDateOfBirthException, InvalidGenderException, InvalidEmailException, InvalidPasswordException {
+        super(patient.getUserID(), patient.getName(), patient.getDateOfBirth(), patient.getGender(), patient.getAddress(), patient.getPhone(), patient.getEmail(), patient.getPassword());
+        this.isAdmit = patient.isAdmit;
+        this.pendingFee = patient.pendingFee;
+        this.diagnosis.addAll(patient.diagnosis);
+        this.feedbacks = new ArrayList<>(patient.feedbacks); // creating the new arraylist so that the copy object doesnt affect the original object
+        this.appointmentManager = patient.appointmentManager;
+        this.checkupHistory = new ArrayList<>(patient.checkupHistory); // creating the new arraylist so that the copy object doesnt affect the original object
+    }
 
     // getters
 //    public String getPatientID() {

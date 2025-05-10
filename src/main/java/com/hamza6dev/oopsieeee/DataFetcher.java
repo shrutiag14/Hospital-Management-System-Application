@@ -1,15 +1,18 @@
 package com.hamza6dev.oopsieeee;
 
+import D_P_Interaction.Prescription;
 import Exceptions.*;
 import User.Doctor;
 import User.Patient;
 import Appointment.Appointment;
 import Appointment.Appointment.AppointmentStatus;
+import User.User;
 
 import java.sql.*;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.List;
 
 
 public class DataFetcher {
@@ -349,4 +352,7 @@ public class DataFetcher {
 
         return appointments; // Return the list of all appointments
     }
+
+    
+
 }

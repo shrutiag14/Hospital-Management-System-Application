@@ -1,4 +1,5 @@
 package com.hamza6dev.oopsieeee;
+
 import Appointment.*;
 import Appointment.Appointment.AppointmentStatus;
 import Notifications.EmailNotification;
@@ -19,12 +20,15 @@ import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.text.*;
+import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javax.mail.*;
 import javax.mail.Session;
 import javax.mail.internet.*;
 
-
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
 import java.sql.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -34,11 +38,11 @@ import java.util.List;
 import java.util.Properties;
 import java.util.stream.IntStream;
 
-
 public class Dashboard extends Application {
     private String accountType;
     private String accountID;
     private User user;
+    private VBox content;
 
     public Dashboard(String accountType, String accountID) {
         this.accountType = accountType;
@@ -70,7 +74,8 @@ public class Dashboard extends Application {
         Region middleSpacer = new Region();
         HBox.setHgrow(middleSpacer, Priority.ALWAYS);
 
-        logout.setStyle("-fx-background-color: blue; -fx-text-fill: white; -fx-border-radius: 5px; -fx-padding: 5px 20px");
+        logout.setStyle(
+                "-fx-background-color: blue; -fx-text-fill: white; -fx-border-radius: 5px; -fx-padding: 5px 20px");
 
         logout.setOnAction(e -> {
             HelloApplication home = new HelloApplication();
@@ -85,7 +90,7 @@ public class Dashboard extends Application {
         });
 
         // Add logo to the navbar
-        navBar.getChildren().addAll(logoBox, middleSpacer ,logout);
+        navBar.getChildren().addAll(logoBox, middleSpacer, logout);
 
         // === Sidebar (Left) ===
         VBox sidebar = new VBox(20);
@@ -93,22 +98,28 @@ public class Dashboard extends Application {
         sidebar.setStyle("-fx-background-color: blue; -fx-text-fill: white; -fx-border-radius: 5px;");
         sidebar.setPrefWidth(200);
 
-
         Button dashboardBtn = createSidebarButton("Dashboard");
         Button patientsBtn = createSidebarButton("Patients");
         Button doctorsBtn = createSidebarButton("Doctors");
         Button appointmentsBtn = createSidebarButton("Appointments");
         Button messagesBtn = createSidebarButton("Messages");
         Button emailBtn = createSidebarButton("Email");
+        Button patientEvaluation = createSidebarButton("Patient Evaluation");
 
         if (user instanceof Doctor) {
-            sidebar.getChildren().addAll(dashboardBtn, patientsBtn, appointmentsBtn, messagesBtn, emailBtn);
+            sidebar.getChildren().addAll(dashboardBtn, patientsBtn, appointmentsBtn, messagesBtn, emailBtn, patientEvaluation);
         } else if (user instanceof Patient) {
-            sidebar.getChildren().addAll(dashboardBtn, doctorsBtn, appointmentsBtn, messagesBtn, emailBtn);
+            Button uploadVitalsBtn = createSidebarButton("Upload Vitals");
+            uploadVitalsBtn.setOnAction(_ -> {
+                content.getChildren().clear();
+                content.getChildren().add(createVitalsUploadPage());
+            });
+            sidebar.getChildren().addAll(dashboardBtn, doctorsBtn, appointmentsBtn, uploadVitalsBtn, messagesBtn,
+                    emailBtn);
         }
 
         // === Content Area (Right) ===
-        VBox content = new VBox(30);
+        content = new VBox(30);
         content.setPadding(new Insets(30));
 
         // Profile picture (placeholder icon)
@@ -140,10 +151,8 @@ public class Dashboard extends Application {
                 + "-fx-border-color: #ddd; -fx-border-width: 1; "
                 + "-fx-background-radius: 10; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0.1, 0, 2);");
 
-
         // Main Layout
         VBox main = renderMainContainer();
-
 
         main.setPadding(new Insets(20));
         main.setStyle("-fx-background-color: white; "
@@ -159,7 +168,7 @@ public class Dashboard extends Application {
             users = createDoctorPatients(user.getUserID());
         }
 
-        if ( user instanceof Patient) {
+        if (user instanceof Patient) {
             users = createPatientDoctors(user.getUserID());
         }
 
@@ -223,7 +232,8 @@ public class Dashboard extends Application {
             ObservableList<Appointment> filteredAppointments = FXCollections.observableArrayList();
 
             for (Appointment appointment : appointmentData) {
-                // Check if the patient name or appointment ID contains the search term (case-insensitive)
+                // Check if the patient name or appointment ID contains the search term
+                // (case-insensitive)
                 if ((appointment.getPatient().getName().toLowerCase().contains(newValue.toLowerCase())) ||
                         (appointment.getAppointmentID().toLowerCase().contains(newValue.toLowerCase())) ||
                         (appointment.getDoctor().getName().toLowerCase().contains(newValue.toLowerCase()))) {
@@ -234,8 +244,6 @@ public class Dashboard extends Application {
             // Update the table view with the filtered appointments
             table.setItems(filteredAppointments);
         });
-
-
 
         // Action Buttons
         Button addAppointmentBtn = new Button("Add Appointment");
@@ -291,12 +299,12 @@ public class Dashboard extends Application {
             doctorComboBox.setPrefWidth(250);
             doctorComboBox.setStyle("-fx-padding: 8px; -fx-font-size: 14px;");
 
-
             ArrayList<Doctor> doctors = new ArrayList<>();
             try {
                 doctors.addAll(DataFetcher.getAllDoctors());
             } catch (SQLException e) {
-                AlertDialogueBox.showAlert(Alert.AlertType.ERROR, "Database Error", "Unable to fetch doctors from database.");
+                AlertDialogueBox.showAlert(Alert.AlertType.ERROR, "Database Error",
+                        "Unable to fetch doctors from database.");
             }
 
             doctorComboBox.getItems().addAll(doctors);
@@ -326,7 +334,6 @@ public class Dashboard extends Application {
                     }
                 }
             });
-
 
             Label dateLabel = new Label("Select Date:");
             dateLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: #555;");
@@ -402,8 +409,7 @@ public class Dashboard extends Application {
                     detailsSectionLabel,
                     detailsGrid,
                     bookBtn,
-                    statusLabel
-            );
+                    statusLabel);
 
             mainContainer.getChildren().addAll(heading1, formContainer);
             content.getChildren().clear();
@@ -417,12 +423,14 @@ public class Dashboard extends Application {
             Appointment selectedAppointment = table.getSelectionModel().getSelectedItem();
 
             if (selectedAppointment == null) {
-                AlertDialogueBox.showAlert(Alert.AlertType.WARNING, "Update Error", "Please select an appointment to update.");
+                AlertDialogueBox.showAlert(Alert.AlertType.WARNING, "Update Error",
+                        "Please select an appointment to update.");
                 return;
             }
 
             if (!(String.valueOf(selectedAppointment.getStatus()).equalsIgnoreCase("PENDING"))) {
-                AlertDialogueBox.showAlert(Alert.AlertType.WARNING, "Status Update Error", "Cannot change status for an appointment that is not in pending stage.");
+                AlertDialogueBox.showAlert(Alert.AlertType.WARNING, "Status Update Error",
+                        "Cannot change status for an appointment that is not in pending stage.");
                 return;
             }
 
@@ -438,7 +446,8 @@ public class Dashboard extends Application {
             Appointment selectedAppointment = table.getSelectionModel().getSelectedItem();
 
             if (selectedAppointment == null) {
-                AlertDialogueBox.showAlert(Alert.AlertType.WARNING, "Cancel Error", "Please select an appointment to delete.");
+                AlertDialogueBox.showAlert(Alert.AlertType.WARNING, "Cancel Error",
+                        "Please select an appointment to delete.");
                 return;
             }
 
@@ -465,22 +474,26 @@ public class Dashboard extends Application {
                             if (rowsAffected > 0) {
                                 // Refresh the TableView by fetching updated appointments
                                 List<Appointment> updatedAppointments = getAppointments();
-                                ObservableList<Appointment> updatedData = FXCollections.observableArrayList(updatedAppointments);
+                                ObservableList<Appointment> updatedData = FXCollections
+                                        .observableArrayList(updatedAppointments);
                                 table.setItems(updatedData);
 
                                 // Display success message
-                                AlertDialogueBox.showAlert(Alert.AlertType.INFORMATION, "Cancel Success", "Appointment cancelled successfully!");
+                                AlertDialogueBox.showAlert(Alert.AlertType.INFORMATION, "Cancel Success",
+                                        "Appointment cancelled successfully!");
                             } else {
                                 throw new SQLException("Appointment not found in the database.");
                             }
                         }
                     } catch (SQLException ex) {
                         // Handle database-related errors
-                        AlertDialogueBox.showAlert(Alert.AlertType.ERROR, "Delete Error", "An error occurred while deleting the appointment: " + ex.getMessage());
+                        AlertDialogueBox.showAlert(Alert.AlertType.ERROR, "Delete Error",
+                                "An error occurred while deleting the appointment: " + ex.getMessage());
                         ex.printStackTrace();
                     } catch (Exception ex) {
                         // Handle other errors
-                        AlertDialogueBox.showAlert(Alert.AlertType.ERROR, "Delete Error", "An unexpected error occurred: " + ex.getMessage());
+                        AlertDialogueBox.showAlert(Alert.AlertType.ERROR, "Delete Error",
+                                "An unexpected error occurred: " + ex.getMessage());
                         ex.printStackTrace();
                     }
                 }
@@ -493,7 +506,8 @@ public class Dashboard extends Application {
         viewDetailsBtn.setOnAction(event -> {
             Appointment selectedAppointment = table.getSelectionModel().getSelectedItem();
             if (selectedAppointment == null) {
-                AlertDialogueBox.showAlert(Alert.AlertType.WARNING, "View Error", "Please select an appointment to view.");
+                AlertDialogueBox.showAlert(Alert.AlertType.WARNING, "View Error",
+                        "Please select an appointment to view.");
                 return;
             }
             // Display the appointment details in a pop-up dialog
@@ -507,12 +521,14 @@ public class Dashboard extends Application {
             Appointment selectedAppointment = table.getSelectionModel().getSelectedItem();
 
             if (selectedAppointment == null) {
-                AlertDialogueBox.showAlert(Alert.AlertType.WARNING, "Status Update Error", "Please select an appointment to update the status.");
+                AlertDialogueBox.showAlert(Alert.AlertType.WARNING, "Status Update Error",
+                        "Please select an appointment to update the status.");
                 return;
             }
 
             if (!(String.valueOf(selectedAppointment.getStatus()).equalsIgnoreCase("PENDING"))) {
-                AlertDialogueBox.showAlert(Alert.AlertType.WARNING, "Status Update Error", "Cannot change status for an appointment that is not in pending stage.");
+                AlertDialogueBox.showAlert(Alert.AlertType.WARNING, "Status Update Error",
+                        "Cannot change status for an appointment that is not in pending stage.");
                 return;
             }
 
@@ -520,14 +536,12 @@ public class Dashboard extends Application {
             openChangeStatusDialog(selectedAppointment, table);
         });
 
-
-
         // Button Layout
         HBox buttonLayout = new HBox(10);
 
-        if ( user instanceof Patient )
+        if (user instanceof Patient)
             buttonLayout = new HBox(10, addAppointmentBtn, updateAppointmentBtn, cancelAppointment, viewDetailsBtn);
-        else if ( user instanceof Doctor )
+        else if (user instanceof Doctor)
             buttonLayout = new HBox(10, changeStatusButton, viewDetailsBtn);
 
         buttonLayout.setAlignment(Pos.CENTER_LEFT);
@@ -585,11 +599,16 @@ public class Dashboard extends Application {
             content.getChildren().add(createEmailPage());
         });
 
+        patientEvaluation.setOnAction(e -> {
+            content.getChildren().clear();
+            content.getChildren().add(createEvaluationPage(user.getUserID()));
+        });
+
         // === Final Layout with BorderPane ===
         BorderPane root = new BorderPane();
-        root.setTop(navBar);          // Add the navigation bar to the top
-        root.setLeft(sidebar);        // Add the sidebar to the left
-        root.setCenter(content);      // Add the main content to the center
+        root.setTop(navBar); // Add the navigation bar to the top
+        root.setLeft(sidebar); // Add the sidebar to the left
+        root.setCenter(content); // Add the main content to the center
 
         // === Scene and Stage ===
         Scene scene = new Scene(root, 1080, 720);
@@ -602,14 +621,17 @@ public class Dashboard extends Application {
     private Button createSidebarButton(String text) {
         Button btn = new Button(text);
         btn.setMaxWidth(Double.MAX_VALUE);
-        btn.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: 700; -fx-text-decoration: none;");
+        btn.setStyle(
+                "-fx-background-color: transparent; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: 700; -fx-text-decoration: none;");
 
-        btn.setOnMouseEntered(e-> {
-            btn.setStyle("-fx-background-color: white; -fx-text-fill: blue; -fx-font-size: 14px; -fx-font-weight: 700; -fx-text-decoration: none;");
+        btn.setOnMouseEntered(e -> {
+            btn.setStyle(
+                    "-fx-background-color: white; -fx-text-fill: blue; -fx-font-size: 14px; -fx-font-weight: 700; -fx-text-decoration: none;");
         });
 
-        btn.setOnMouseExited(e-> {
-            btn.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: 700; -fx-text-decoration: none;");
+        btn.setOnMouseExited(e -> {
+            btn.setStyle(
+                    "-fx-background-color: transparent; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: 700; -fx-text-decoration: none;");
         });
 
         btn.setAlignment(Pos.CENTER_LEFT);
@@ -641,7 +663,6 @@ public class Dashboard extends Application {
 
         return mainContainer;
     }
-
 
     private VBox renderDoctorContent() {
         Doctor doc = null;
@@ -676,16 +697,14 @@ public class Dashboard extends Application {
         // Left Info Block
         VBox leftInfo = new VBox(10,
                 createInfoRow("User ID :", user.getUserID()),
-                createInfoRow("Address :", user.getAddress())
-        );
+                createInfoRow("Address :", user.getAddress()));
         leftInfo.setPadding(new Insets(10));
         leftInfo.setStyle(" -fx-border-radius: 5; -fx-background-radius: 5;");
 
         // Right Info Block
         VBox rightInfo = new VBox(10,
                 createInfoRow("Specialization :", doc.getSpeciality()),
-                createInfoRow("License Number :", doc.getPMDC_NO())
-        );
+                createInfoRow("License Number :", doc.getPMDC_NO()));
         rightInfo.setPadding(new Insets(10));
         rightInfo.setStyle("-fx-border-radius: 5; -fx-background-radius: 5;");
 
@@ -696,8 +715,7 @@ public class Dashboard extends Application {
         // Fee and Experience
         VBox bottomRow = new VBox(10,
                 createInfoRow("Consultation Fee :", String.valueOf(doc.getConsulationFee())),
-                createInfoRow("Experience Years :", (doc.getExperience() + " years"))
-        );
+                createInfoRow("Experience Years :", (doc.getExperience() + " years")));
         bottomRow.setPadding(new Insets(10));
 
         VBox doctorInfo = new VBox(10, availabilitySection, infoSection, bottomRow);
@@ -723,25 +741,25 @@ public class Dashboard extends Application {
 
         // Create a GridPane to place labels
         GridPane grid = new GridPane();
-        grid.setVgap(10);  // Vertical spacing between rows
-        grid.setHgap(20);  // Horizontal spacing (if needed for multiple columns)
-        grid.setPadding(new Insets(10));  // Padding around the grid
+        grid.setVgap(10); // Vertical spacing between rows
+        grid.setHgap(20); // Horizontal spacing (if needed for multiple columns)
+        grid.setPadding(new Insets(10)); // Padding around the grid
 
         // Add labels to the grid (row by row)
         grid.add(new Label("Diagnosis:"), 0, 0); // Column 0, Row 0
-        grid.add(diagnosis, 1, 0);               // Column 1, Row 0
+        grid.add(diagnosis, 1, 0); // Column 1, Row 0
 
         grid.add(new Label("Admit Status:"), 0, 1); // Column 0, Row 1
-        grid.add(admitStatus, 1, 1);                // Column 1, Row 1
+        grid.add(admitStatus, 1, 1); // Column 1, Row 1
 
         grid.add(new Label("Attending Doctor:"), 0, 2); // Column 0, Row 2
-        grid.add(attendingDoctor, 1, 2);                // Column 1, Row 2
+        grid.add(attendingDoctor, 1, 2); // Column 1, Row 2
 
         grid.add(new Label("Room Number:"), 0, 3); // Column 0, Row 3
-        grid.add(roomNumber, 1, 3);                // Column 1, Row 3
+        grid.add(roomNumber, 1, 3); // Column 1, Row 3
 
         grid.add(new Label("Prescribed Medications:"), 0, 4); // Column 0, Row 4
-        grid.add(prescribedMedications, 1, 4);                // Column 1, Row 4
+        grid.add(prescribedMedications, 1, 4); // Column 1, Row 4
 
         // Set alignment and styles for the grid
         grid.setAlignment(Pos.CENTER_LEFT);
@@ -750,8 +768,7 @@ public class Dashboard extends Application {
         // Left Info Block
         VBox leftInfo = new VBox(10,
                 createInfoRow("User ID :", patient.getUserID()),
-                createInfoRow("Address :", patient.getAddress())
-        );
+                createInfoRow("Address :", patient.getAddress()));
         leftInfo.setPadding(new Insets(10));
         leftInfo.setStyle(" -fx-border-radius: 5; -fx-background-radius: 5;");
 
@@ -759,8 +776,7 @@ public class Dashboard extends Application {
         VBox rightInfo = new VBox(10,
                 createInfoRow("Admit Status :", patient.isAdmit() ? "Admitted" : "Not Admitted"),
                 createInfoRow("Diagnosis:", "Delulu"),
-                createInfoRow("Medications :", "Be real my nigga")
-        );
+                createInfoRow("Medications :", "Be real my nigga"));
         rightInfo.setPadding(new Insets(10));
         rightInfo.setStyle("-fx-border-radius: 5; -fx-background-radius: 5;");
 
@@ -776,11 +792,11 @@ public class Dashboard extends Application {
 
     private void initializeUser() {
         try {
-            if(accountType.equals("doctor"))
+            if (accountType.equals("doctor"))
                 user = DataFetcher.getDoctorData(accountType, accountID);
-            else if(accountType.equals("patient"))
+            else if (accountType.equals("patient"))
                 user = DataFetcher.getPatientData(accountType, accountID);
-        } catch(Exception e) {
+        } catch (Exception e) {
             System.out.println("Database Error: Unable to retrieve data.");
         }
     }
@@ -863,15 +879,16 @@ public class Dashboard extends Application {
         titleLabel.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
 
         HBox idRow = createDetailRow("Appointment ID:", appointment.getAppointmentID());
-        HBox doctorRow = createDetailRow("Doctor:", appointment.getDoctor() != null ? appointment.getDoctor().getName() : "N/A");
-        HBox patientRow = createDetailRow("Patient:", appointment.getPatient() != null ? appointment.getPatient().getName() : "N/A");
+        HBox doctorRow = createDetailRow("Doctor:",
+                appointment.getDoctor() != null ? appointment.getDoctor().getName() : "N/A");
+        HBox patientRow = createDetailRow("Patient:",
+                appointment.getPatient() != null ? appointment.getPatient().getName() : "N/A");
         HBox dateRow = createDetailRow("Date:", appointment.getDateTime().toLocalDate().toString());
         HBox timeRow = createDetailRow("Time:", appointment.getDateTime().toLocalTime().toString());
         HBox statusRow = createDetailRow("Status:", appointment.getStatus().toString());
 
         // Add all rows to container
         detailsContainer.getChildren().addAll(titleLabel, idRow, doctorRow, patientRow, dateRow, timeRow, statusRow);
-
 
         // Set the content of the dialog
         detailsDialog.getDialogPane().setContent(detailsContainer);
@@ -937,7 +954,8 @@ public class Dashboard extends Application {
         try {
             doctors.addAll(DataFetcher.getAllDoctors());
         } catch (SQLException e) {
-            AlertDialogueBox.showAlert(Alert.AlertType.ERROR, "Database Error", "Unable to fetch doctors from database.");
+            AlertDialogueBox.showAlert(Alert.AlertType.ERROR, "Database Error",
+                    "Unable to fetch doctors from database.");
         }
 
         doctorComboBox.getItems().addAll(doctors);
@@ -969,15 +987,12 @@ public class Dashboard extends Application {
         });
         doctorComboBox.setValue(appointment.getDoctor());
 
-
         // Add Input Fields to Dialog
         dialogContainer.getChildren().addAll(
                 titleLabel,
                 createUpdateRow("New Date", datePicker),
                 createUpdateRow("New Time", timeComboBox),
-                createUpdateRow("New Doctor", doctorComboBox)
-        );
-
+                createUpdateRow("New Doctor", doctorComboBox));
 
         // Add Buttons
         Button updateButton = new Button("Update");
@@ -1000,7 +1015,8 @@ public class Dashboard extends Application {
 
             LocalDateTime newDateTime = LocalDateTime.of(date, time);
             if (newDateTime.isBefore(LocalDateTime.now())) {
-                AlertDialogueBox.showAlert(Alert.AlertType.ERROR, "Validation Error", "The selected date and time must be in the future.");
+                AlertDialogueBox.showAlert(Alert.AlertType.ERROR, "Validation Error",
+                        "The selected date and time must be in the future.");
                 return;
             }
 
@@ -1008,7 +1024,8 @@ public class Dashboard extends Application {
                 // Check for Duplicate Appointments
                 AppointmentManager appointmentManager = new AppointmentManager();
                 if (appointmentManager.isDuplicateAppointment(newDateTime, doctor, appointment.getPatient())) {
-                    AlertDialogueBox.showAlert(Alert.AlertType.ERROR, "Duplicate Error", "An appointment already exists at this date and time for the selected doctor.");
+                    AlertDialogueBox.showAlert(Alert.AlertType.ERROR, "Duplicate Error",
+                            "An appointment already exists at this date and time for the selected doctor.");
                     return;
                 }
 
@@ -1019,10 +1036,12 @@ public class Dashboard extends Application {
                 table.setItems(FXCollections.observableArrayList(getAppointments()));
 
                 // Show Success Notification
-                AlertDialogueBox.showAlert(Alert.AlertType.CONFIRMATION, "Update Successful", "The appointment has been successfully updated.");
+                AlertDialogueBox.showAlert(Alert.AlertType.CONFIRMATION, "Update Successful",
+                        "The appointment has been successfully updated.");
                 updateDialog.close();
             } catch (SQLException ex) {
-                AlertDialogueBox.showAlert(Alert.AlertType.ERROR, "Database Error", "An error occurred while updating the appointment: " + ex.getMessage());
+                AlertDialogueBox.showAlert(Alert.AlertType.ERROR, "Database Error",
+                        "An error occurred while updating the appointment: " + ex.getMessage());
             }
         });
 
@@ -1032,7 +1051,8 @@ public class Dashboard extends Application {
         updateDialog.showAndWait();
     }
 
-    private void updateAppointmentInDatabase(String appointmentId, LocalDateTime newDateTime, Doctor newDoctor) throws SQLException {
+    private void updateAppointmentInDatabase(String appointmentId, LocalDateTime newDateTime, Doctor newDoctor)
+            throws SQLException {
         // SQL Query to Update Appointment in the Database
         String updateQuery = "UPDATE appointment " +
                 "SET date_time = ?, doctor_id = ?, status = ? " +
@@ -1042,9 +1062,9 @@ public class Dashboard extends Application {
              PreparedStatement stmt = conn.prepareStatement(updateQuery)) {
             // Set Parameters
             stmt.setTimestamp(1, Timestamp.valueOf(newDateTime)); // New Date and Time
-            stmt.setString(2, newDoctor.getUserID());                     // New Doctor ID
-            stmt.setString(3,   "PENDING");
-            stmt.setString(4, appointmentId);                             // Appointment ID
+            stmt.setString(2, newDoctor.getUserID()); // New Doctor ID
+            stmt.setString(3, "PENDING");
+            stmt.setString(4, appointmentId); // Appointment ID
 
             // Execute the Update Query
             int rowsUpdated = stmt.executeUpdate();
@@ -1092,10 +1112,12 @@ public class Dashboard extends Application {
                 table.setItems(FXCollections.observableArrayList(getAppointments()));
 
                 // Success Notification
-                AlertDialogueBox.showAlert(Alert.AlertType.CONFIRMATION, "Status Update Successful", "The status has been successfully updated.");
+                AlertDialogueBox.showAlert(Alert.AlertType.CONFIRMATION, "Status Update Successful",
+                        "The status has been successfully updated.");
                 statusDialog.close();
             } catch (Exception ex) {
-                AlertDialogueBox.showAlert(Alert.AlertType.ERROR, "Update Failed", "Unable to update status: " + ex.getMessage());
+                AlertDialogueBox.showAlert(Alert.AlertType.ERROR, "Update Failed",
+                        "Unable to update status: " + ex.getMessage());
             }
         });
 
@@ -1111,7 +1133,7 @@ public class Dashboard extends Application {
         statusDialog.showAndWait();
     }
 
-    public VBox createDoctorPatients (String doctorID) {
+    public VBox createDoctorPatients(String doctorID) {
         // Get the list of patients returned from the getAllPatientsForDoctor method
         List<Patient> patientList = DataFetcher.getAllPatientsForDoctor(doctorID);
 
@@ -1129,9 +1151,7 @@ public class Dashboard extends Application {
                         "-fx-border-color: #ddd;" +
                         "-fx-border-width: 0;" +
                         "-fx-background-radius: 10px;" +
-                        "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0.1, 0, 2);"
-        );
-
+                        "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0.1, 0, 2);");
 
         // Create columns for Patient Table
         TableColumn<Patient, String> userIdColumn = new TableColumn<>("Patient ID");
@@ -1156,7 +1176,8 @@ public class Dashboard extends Application {
         isAdmittedColumn.setCellValueFactory(new PropertyValueFactory<>("admit"));
 
         // Add the columns to the table
-        tableView.getColumns().addAll(userIdColumn, nameColumn, dobColumn, genderColumn, addressColumn, phoneColumn, isAdmittedColumn);
+        tableView.getColumns().addAll(userIdColumn, nameColumn, dobColumn, genderColumn, addressColumn, phoneColumn,
+                isAdmittedColumn);
 
         // Set the data to the table
         tableView.setItems(patients);
@@ -1166,12 +1187,11 @@ public class Dashboard extends Application {
         placeholder.setStyle("-fx-text-fill: #888; -fx-font-size: 14px;");
         tableView.setPlaceholder(placeholder);
 
-
         // Add the table to a layout (VBox in this case)
         return new VBox(20, tableView);
     }
 
-    public VBox createPatientDoctors (String patientID) {
+    public VBox createPatientDoctors(String patientID) {
         // Get the list of doctors returned from the getAllPatientsForDoctor method
         List<Doctor> doctorList = DataFetcher.getAllDoctorsForPatient(patientID);
 
@@ -1189,9 +1209,7 @@ public class Dashboard extends Application {
                         "-fx-border-color: #ddd;" +
                         "-fx-border-width: 0;" +
                         "-fx-background-radius: 10px;" +
-                        "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0.1, 0, 2);"
-        );
-
+                        "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0.1, 0, 2);");
 
         // Create columns for Patient Table
         TableColumn<Doctor, String> userIdColumn = new TableColumn<>("Doctor ID");
@@ -1213,7 +1231,8 @@ public class Dashboard extends Application {
         specialityColumn.setCellValueFactory(new PropertyValueFactory<>("speciality"));
 
         // Add the columns to the table
-        tableView.getColumns().addAll(userIdColumn, nameColumn, genderColumn, phoneColumn, emailColumn, specialityColumn);
+        tableView.getColumns().addAll(userIdColumn, nameColumn, genderColumn, phoneColumn, emailColumn,
+                specialityColumn);
 
         // Set the data to the table
         tableView.setItems(doctors);
@@ -1222,7 +1241,6 @@ public class Dashboard extends Application {
         Label placeholder = new Label("No doctors found for " + user.getName() + ".");
         placeholder.setStyle("-fx-text-fill: #888; -fx-font-size: 14px;");
         tableView.setPlaceholder(placeholder);
-
 
         // Add the table to a layout (VBox in this case)
         return new VBox(20, tableView);
@@ -1241,7 +1259,8 @@ public class Dashboard extends Application {
         VBox form = new VBox(15);
         form.setPadding(new Insets(30));
         form.setMaxWidth(500);
-        form.setStyle("-fx-background-color: white; -fx-background-radius: 12; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.05), 10, 0, 0, 4);");
+        form.setStyle(
+                "-fx-background-color: white; -fx-background-radius: 12; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.05), 10, 0, 0, 4);");
 
         // Input fields
         TextField senderEmailField = new TextField();
@@ -1258,7 +1277,7 @@ public class Dashboard extends Application {
 
         TextField subjectField = new TextField();
         subjectField.setPromptText("Subject");
-        subjectField.setPrefHeight(40);  // New field for subject
+        subjectField.setPrefHeight(40); // New field for subject
 
         TextArea messageArea = new TextArea();
         messageArea.setPromptText("Type your message...");
@@ -1266,16 +1285,18 @@ public class Dashboard extends Application {
 
         Button sendBtn = new Button("Send Email");
         sendBtn.setPrefHeight(40);
-        sendBtn.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 5px;");
+        sendBtn.setStyle(
+                "-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 5px;");
 
         sendBtn.setOnAction(e -> {
             String senderEmail = senderEmailField.getText().trim();
             String senderPassword = senderPasswordField.getText().trim();
             String recipientEmail = recipientField.getText().trim();
-            String subject = subjectField.getText().trim();  // Get the subject
+            String subject = subjectField.getText().trim(); // Get the subject
             String message = messageArea.getText().trim();
 
-            if (senderEmail.isEmpty() || senderPassword.isEmpty() || recipientEmail.isEmpty() || message.isEmpty() || subject.isEmpty()) {
+            if (senderEmail.isEmpty() || senderPassword.isEmpty() || recipientEmail.isEmpty() || message.isEmpty()
+                    || subject.isEmpty()) {
                 AlertDialogueBox.showAlert(Alert.AlertType.WARNING, "Missing Fields", "Please fill in all fields.");
                 return;
             }
@@ -1296,7 +1317,7 @@ public class Dashboard extends Application {
                 Message email = new MimeMessage(session);
                 email.setFrom(new InternetAddress(senderEmail));
                 email.setRecipients(Message.RecipientType.TO, InternetAddress.parse(recipientEmail));
-                email.setSubject(subject);  // Set the subject of the email
+                email.setSubject(subject); // Set the subject of the email
                 email.setText(message);
                 Transport.send(email);
 
@@ -1317,10 +1338,144 @@ public class Dashboard extends Application {
             }
         });
 
-        form.getChildren().addAll(senderEmailField, senderPasswordField, recipientField, subjectField, messageArea, sendBtn);  // Add subjectField to form
+        form.getChildren().addAll(senderEmailField, senderPasswordField, recipientField, subjectField, messageArea,
+                sendBtn); // Add subjectField to form
         container.getChildren().addAll(title, form);
 
         return container;
+    }
+
+    private VBox createVitalsUploadPage() {
+        VBox container = new VBox(20);
+        container.setPadding(new Insets(20));
+        container.setAlignment(Pos.TOP_LEFT);
+
+        Label title = new Label("Upload Vitals CSV");
+        title.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
+
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("CSV Files", "*.csv"));
+
+        Button uploadBtn = new Button("Select and Upload CSV");
+        uploadBtn.setStyle("-fx-background-color: green; -fx-text-fill: white;");
+        uploadBtn.setOnAction(e -> {
+            File file = fileChooser.showOpenDialog(null);
+            if (file != null) {
+                try {
+                    parseAndStoreVitalsCSV(file);
+                    AlertDialogueBox.showAlert(Alert.AlertType.INFORMATION, "Success", "Vitals uploaded successfully.");
+                } catch (Exception ex) {
+                    AlertDialogueBox.showAlert(Alert.AlertType.ERROR, "Error",
+                            "Failed to upload vitals: " + ex.getMessage());
+                    ex.printStackTrace();
+                }
+            }
+        });
+
+        container.getChildren().addAll(title, uploadBtn);
+        return container;
+    }
+
+    private void parseAndStoreVitalsCSV(File file) throws Exception {
+        try (BufferedReader reader = new BufferedReader(new FileReader(file));
+             Connection conn = DatabaseConnection.getConnection()) {
+
+            String line;
+            String sql = "INSERT INTO vitalsign_history (patient_id, recorded_at, heart_rate, oxygen_level, blood_pressure, temperature) "
+                    +
+                    "VALUES (?, NOW(), ?, ?, ?, ?)";
+            PreparedStatement stmt = conn.prepareStatement(sql);
+
+            while ((line = reader.readLine()) != null) {
+                String[] fields = line.split(",");
+                if (fields.length != 4)
+                    continue; // heartRate, oxygenLevel, bloodPressure, temperature
+
+                stmt.setString(1, user.getUserID()); // patient_id from logged-in user
+                stmt.setInt(2, Integer.parseInt(fields[0])); // heart_rate
+                stmt.setInt(3, Integer.parseInt(fields[1])); // oxygen_level
+                stmt.setString(4, fields[2]); // blood_pressure
+                stmt.setDouble(5, Double.parseDouble(fields[3])); // temperature
+
+                stmt.addBatch();
+            }
+
+            stmt.executeBatch();
+        }
+    }
+
+    public VBox createEvaluationPage(String doctorID) {
+        VBox mainLayout = new VBox(20);
+        mainLayout.setStyle("-fx-padding: 20; -fx-alignment: top-left;");
+
+        Text heading = new Text("Patient Evaluation");
+        heading.setFont(Font.font("Arial", FontWeight.BOLD, 30));
+        heading.setFill(Color.BLUE);
+
+        ComboBox<String> patientDropdown = new ComboBox<>();
+        patientDropdown.setPromptText("Select a patient");
+
+        // Fetch patient data associated with the specific doctor
+        ArrayList<Patient> patientsList = DataFetcher.getAllPatientsForDoctor(doctorID);
+        for (Patient patient : patientsList) {
+            patientDropdown.getItems().add(patient.getUserID() + " - " + patient.getName());
+        }
+
+        VBox detailsContainer = new VBox(20); // Box to hold patient details dynamically
+        detailsContainer.setStyle("-fx-background-color: white; "
+                + "-fx-border-color: #ddd; -fx-border-width: 1; "
+                + "-fx-background-radius: 10; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0.1, 0, 2);");
+        detailsContainer.setPrefWidth(800); // Optional: Adjust the width to match `renderPatientContent`
+
+        // Event to display selected patient information
+        patientDropdown.setOnAction(e -> {
+            String selectedValue = patientDropdown.getSelectionModel().getSelectedItem();
+
+            if (selectedValue != null) {
+                String patientId = selectedValue.split(" - ")[0];
+
+                try {
+                    Patient patient = DataFetcher.getPatientData("patient", patientId);
+
+                    if (patient != null) {
+                        // Clear previous details
+                        detailsContainer.getChildren().clear();
+
+                        // Add sections for patient information (Left & Right Infos)
+                        VBox leftInfo = new VBox(10,
+                                createInfoRow("User ID:", patient.getUserID()),
+                                createInfoRow("Name:", patient.getName()),
+                                createInfoRow("Date of Birth:", String.valueOf(patient.getDateOfBirth())),
+                                createInfoRow("Gender:", patient.getGender()));
+                        leftInfo.setStyle("-fx-padding: 10;");
+
+                        VBox rightInfo = new VBox(10,
+                                createInfoRow("Email:", patient.getEmail()),
+                                createInfoRow("Phone:", patient.getPhone()),
+                                createInfoRow("Address:", patient.getAddress()),
+                                createInfoRow("Is Admitted:", patient.isAdmit() ? "Yes" : "No"));
+                        rightInfo.setStyle("-fx-padding: 10;");
+
+                        // Combine left and right sections
+                        HBox infoSection = new HBox(40, leftInfo, rightInfo);
+                        infoSection.setAlignment(Pos.TOP_LEFT);
+
+                        // Add all sections to the container
+                        detailsContainer.getChildren().addAll(infoSection);
+                    } else {
+                        detailsContainer.getChildren().clear();
+                        detailsContainer.getChildren().add(new Label("No details available."));
+                    }
+                } catch (SQLException ex) {
+                    ex.printStackTrace();
+                    detailsContainer.getChildren().clear();
+                    detailsContainer.getChildren().add(new Label("Error fetching patient data."));
+                }
+            }
+        });
+
+        mainLayout.getChildren().addAll(heading, patientDropdown, detailsContainer);
+        return mainLayout;
     }
 
     public static void main(String[] args) {
