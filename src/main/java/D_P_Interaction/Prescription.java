@@ -12,6 +12,8 @@ public class Prescription {
     private ArrayList<String> medications;
     private ArrayList<String> dosages;
     private ArrayList<String> schedule;
+    private String feedback;
+
 
     // Constructor
     public Prescription(Patient patient, Doctor doctor) {
@@ -20,6 +22,7 @@ public class Prescription {
         this.medications = new ArrayList<>();
         this.dosages = new ArrayList<>();
         this.schedule = new ArrayList<>();
+        this.feedback = ""; // Default empty feedback
     }
 
     // Method to add a medication
@@ -28,6 +31,15 @@ public class Prescription {
         this.dosages.add(dosage);
         this.schedule.add(schedule);
     }
+
+    public void setFeedback(String feedback) {
+        this.feedback = feedback;
+    }
+
+    public String getFeedback() {
+        return feedback;
+    }
+
 
     // Getters
     public Patient getPatient() {
